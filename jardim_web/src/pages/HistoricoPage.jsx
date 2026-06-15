@@ -1,518 +1,554 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
-  RefreshCw, Download, Droplet, CloudRain,
-  Thermometer, Recycle, TrendingUp, TrendingDown,
-  Minus, Plus, Send, X, ChevronDown
+  RefreshCw, Download, Search, ChevronRight,
+  Droplet, CloudRain, Thermometer, Wind, Sun,
+  FlaskConical, Waves, Cpu, Activity,
+  TrendingUp, TrendingDown, Minus,
 } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, LineChart, Line,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
+  XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, Legend,
 } from "recharts";
 import { toast } from "react-toastify";
 import { leituraService, sensorService } from "../services/api";
+import { parseLeituras, calcKpis, exportCsv } from "../utils/sensorJsonParser";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const avg   = (arr) => arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : 0;
-const sum   = (arr) => arr.reduce((s, v) => s + v, 0);
-const round = (n, d = 1) => Math.round(n * 10 ** d) / 10 ** d;
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const PERIODS = [
-  { key:"24h",  label:"24 horas", hours:24,  limit:200 },
-  { key:"7d",   label:"7 dias",   hours:168, limit:500 },
-  { key:"30d",  label:"30 dias",  hours:720, limit:2000 },
+  { key: "24h",  label: "24h",   hours: 24,  limit: 500  },
+  { key: "7d",   label: "7 dias", hours: 168, limit: 1000 },
+  { key: "30d",  label: "30 dias", hours: 720, limit: 2000 },
 ];
 
+const ICON_MAP = {
+  wind:        Wind,
+  thermometer: Thermometer,
+  "cloud-rain": CloudRain,
+  waves:       Waves,
+  sun:         Sun,
+  flask:       FlaskConical,
+  droplet:     Droplet,
+  cpu:         Cpu,
+};
+
+const getSensorIcon = (sensor) => {
+  const tipo = (sensor.tipoSensor?.nome || sensor.nome || "").toLowerCase();
+  if (tipo.includes("pm") || tipo.includes("ar") || tipo.includes("partícula")) return Wind;
+  if (tipo.includes("chuva") || tipo.includes("pluv"))   return CloudRain;
+  if (tipo.includes("clima") || tipo.includes("dht") || tipo.includes("bme") || tipo.includes("temp")) return Thermometer;
+  if (tipo.includes("solo") || tipo.includes("capac"))   return Droplet;
+  if (tipo.includes("nível") || tipo.includes("nivel") || tipo.includes("ultrass")) return Waves;
+  if (tipo.includes("lum") || tipo.includes("luz") || tipo.includes("bh17")) return Sun;
+  if (tipo.includes("ph"))  return FlaskConical;
+  return Cpu;
+};
+
+const getSensorColor = (sensor) => {
+  const tipo = (sensor.tipoSensor?.nome || sensor.nome || "").toLowerCase();
+  if (tipo.includes("pm") || tipo.includes("ar"))         return { color: "#8b5cf6", bg: "#f5f3ff" };
+  if (tipo.includes("chuva") || tipo.includes("pluv"))    return { color: "#3b82f6", bg: "#eff6ff" };
+  if (tipo.includes("clima") || tipo.includes("temp"))    return { color: "#f97316", bg: "#fff7ed" };
+  if (tipo.includes("solo") || tipo.includes("capac"))    return { color: "#10b981", bg: "#ecfdf5" };
+  if (tipo.includes("nível") || tipo.includes("nivel"))   return { color: "#06b6d4", bg: "#ecfeff" };
+  if (tipo.includes("lum") || tipo.includes("luz"))       return { color: "#f59e0b", bg: "#fefce8" };
+  if (tipo.includes("ph"))                                 return { color: "#8b5cf6", bg: "#f5f3ff" };
+  return { color: "#6b7280", bg: "#f3f4f6" };
+};
+
 const trendIcon = (delta) => {
-  if (delta > 0) return <TrendingUp  size={13} />;
-  if (delta < 0) return <TrendingDown size={13} />;
-  return <Minus size={13} />;
+  if (delta > 0) return <TrendingUp  size={12} />;
+  if (delta < 0) return <TrendingDown size={12} />;
+  return <Minus size={12} />;
 };
 
-const trendColor = (delta, positiveIsGood = true) => {
-  if (delta === 0) return "#9ca3af";
-  return (delta > 0) === positiveIsGood ? "#10b981" : "#ef4444";
-};
+const fmt = (n, d = 2) => n != null ? Number(n).toLocaleString("pt-BR", { maximumFractionDigits: d }) : "—";
 
-// Gera dataset de nível de reservatório e vazão (estimado)
-const generateReservoirData = (climaData) => {
-  if (climaData.length === 0) {
-    return Array.from({ length:24 }, (_, i) => ({
-      name: `${i}h`,
-      nivel: Math.round(40 + 20 * Math.sin(i * Math.PI / 12) + Math.random() * 5),
-      vazao: round(2 + 1.5 * Math.cos(i * Math.PI / 8) + Math.random(), 1),
-    }));
-  }
-  return climaData.map((d, i) => ({
-    name: d.name,
-    nivel: Math.round(35 + 20 * Math.sin(i * Math.PI / 12) + (d.umidade ?? 50) * 0.2),
-    vazao: round(1.5 + (d.umidade ?? 50) * 0.03, 1),
-  }));
-};
-
-// ─── KPI Card ─────────────────────────────────────────────────────────────────
-
-const KpiCard = ({ icon, value, unit, label, delta, deltaUnit = "", positiveIsGood = true }) => {
-  const dColor = trendColor(delta, positiveIsGood);
-  return (
-    <div className="glass-panel hover-scale" style={{
-      padding:"20px 22px", background:"white", flex:"1 1 160px",
-      border:"1px solid rgba(16,185,129,0.07)"
-    }}>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
-        <span style={{ color:"#10b981" }}>{icon}</span>
-        {delta !== undefined && (
-          <span style={{ display:"flex", alignItems:"center", gap:3,
-                         fontSize:11, fontWeight:700, color:dColor }}>
-            {trendIcon(delta)}
-            {delta > 0 ? "+" : ""}{delta}{deltaUnit}
-          </span>
-        )}
-      </div>
-      <div style={{ fontSize:30, fontWeight:800, color:"#064e3b",
-                    fontFamily:"var(--font-heading)", lineHeight:1 }}>
-        {value}<span style={{ fontSize:16, fontWeight:600, color:"#6b7280", marginLeft:4 }}>{unit}</span>
-      </div>
-      <div style={{ fontSize:12, color:"#9ca3af", marginTop:6 }}>{label}</div>
-    </div>
-  );
-};
-
-// ─── Custom Tooltip ───────────────────────────────────────────────────────────
+// ─── Tooltip customizado ──────────────────────────────────────────────────────
 
 const ChartTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
-    <div style={{ background:"white", borderRadius:12, padding:"10px 14px",
-                  border:"1px solid rgba(16,185,129,0.15)", boxShadow:"var(--shadow-md)",
-                  fontSize:12 }}>
-      <p style={{ fontWeight:700, color:"#064e3b", marginBottom:6 }}>{label}</p>
+    <div style={{
+      background: "white", borderRadius: 12, padding: "10px 14px",
+      border: "1px solid rgba(16,185,129,0.15)", boxShadow: "var(--shadow-md)", fontSize: 12,
+    }}>
+      <p style={{ fontWeight: 700, color: "#064e3b", marginBottom: 6 }}>{label}</p>
       {payload.map((p) => (
-        <p key={p.dataKey} style={{ color:p.color, margin:"2px 0" }}>
-          {p.name}: <strong>{p.value}</strong>
+        <p key={p.dataKey} style={{ color: p.color, margin: "2px 0" }}>
+          {p.name}: <strong>{p.value != null ? fmt(p.value, 3) : "—"}</strong>
         </p>
       ))}
     </div>
   );
 };
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ─── KPI Card ─────────────────────────────────────────────────────────────────
+
+const KpiCard = ({ label, value, unit, delta, color = "#10b981" }) => (
+  <div className="glass-panel" style={{
+    padding: "16px 18px", background: "white", flex: "1 1 120px", minWidth: 0,
+    border: "1px solid rgba(16,185,129,0.07)",
+  }}>
+    <div style={{ fontSize: 11, color: "#9ca3af", fontWeight: 600, marginBottom: 6,
+                  textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</div>
+    <div style={{ fontSize: 26, fontWeight: 800, color: "#064e3b",
+                  fontFamily: "var(--font-heading)", lineHeight: 1 }}>
+      {value}<span style={{ fontSize: 13, fontWeight: 500, color: "#6b7280", marginLeft: 4 }}>{unit}</span>
+    </div>
+    {delta != null && (
+      <div style={{ display: "flex", alignItems: "center", gap: 3,
+                    fontSize: 11, fontWeight: 600, color: color, marginTop: 4 }}>
+        {trendIcon(delta)} {delta > 0 ? "+" : ""}{fmt(delta, 2)}
+      </div>
+    )}
+  </div>
+);
+
+// ─── Gráfico dinâmico ─────────────────────────────────────────────────────────
+
+const SensorChart = ({ chartData, series, tipo }) => {
+  if (chartData.length === 0) {
+    return (
+      <div style={{ height: 260, display: "flex", alignItems: "center",
+                    justifyContent: "center", color: "#9ca3af", fontSize: 13 }}>
+        Nenhuma leitura no período selecionado.
+      </div>
+    );
+  }
+
+  const interval = Math.max(0, Math.floor(chartData.length / 8) - 1);
+
+  // Chuva → BarChart; genérico único → LineChart; demais → AreaChart
+  if (tipo === "chuva") {
+    return (
+      <ResponsiveContainer width="100%" height={260}>
+        <BarChart data={chartData} margin={{ top: 5, right: 8, left: -20, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+          <XAxis dataKey="name" stroke="#c1c9d2" fontSize={10} tickLine={false} interval={interval} />
+          <YAxis stroke="#c1c9d2" fontSize={10} tickLine={false} />
+          <Tooltip content={<ChartTooltip />} />
+          {series.map((s) => (
+            <Bar key={s.key} dataKey={s.key} name={s.label} fill={s.color}
+                 radius={[4, 4, 0, 0]} maxBarSize={24} />
+          ))}
+        </BarChart>
+      </ResponsiveContainer>
+    );
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height={260}>
+      <AreaChart data={chartData} margin={{ top: 5, right: 8, left: -20, bottom: 0 }}>
+        <defs>
+          {series.map((s, i) => (
+            <linearGradient key={s.key} id={`grad_${s.key}_${i}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%"  stopColor={s.color} stopOpacity={0.25} />
+              <stop offset="95%" stopColor={s.color} stopOpacity={0.02} />
+            </linearGradient>
+          ))}
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+        <XAxis dataKey="name" stroke="#c1c9d2" fontSize={10} tickLine={false} interval={interval} />
+        <YAxis stroke="#c1c9d2" fontSize={10} tickLine={false} />
+        <Tooltip content={<ChartTooltip />} />
+        {series.length > 1 && (
+          <Legend iconType="circle" wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
+        )}
+        {series.map((s, i) => (
+          <Area key={s.key} type="monotone" dataKey={s.key} name={s.label}
+            stroke={s.color} strokeWidth={2.5}
+            fill={`url(#grad_${s.key}_${i})`} connectNulls />
+        ))}
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+};
+
+// ─── Tabela de leituras ───────────────────────────────────────────────────────
+
+const LeiturasTable = ({ chartData, series }) => {
+  const shown = chartData.slice().reverse().slice(0, 50);
+  return (
+    <div style={{ overflowX: "auto" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+        <thead>
+          <tr style={{ borderBottom: "1px solid #f1f5f9" }}>
+            <th style={{ textAlign: "left", padding: "8px 12px", color: "#9ca3af",
+                         fontWeight: 600, whiteSpace: "nowrap" }}>Data / Hora</th>
+            {series.map((s) => (
+              <th key={s.key} style={{ textAlign: "right", padding: "8px 12px",
+                                       color: s.color, fontWeight: 700, whiteSpace: "nowrap" }}>
+                {s.label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {shown.map((row, i) => (
+            <tr key={i} style={{
+              borderBottom: "1px solid #f9fafb",
+              background: i % 2 === 0 ? "transparent" : "rgba(16,185,129,0.02)",
+            }}>
+              <td style={{ padding: "7px 12px", color: "#4b5563", whiteSpace: "nowrap" }}>
+                {row.name}
+              </td>
+              {series.map((s) => (
+                <td key={s.key} style={{ padding: "7px 12px", textAlign: "right",
+                                          fontWeight: 600, color: "#064e3b" }}>
+                  {row[s.key] != null ? fmt(row[s.key], 3) : <span style={{ color: "#d1d5db" }}>—</span>}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {chartData.length > 50 && (
+        <p style={{ fontSize: 11, color: "#9ca3af", textAlign: "center", padding: "8px 0" }}>
+          Exibindo 50 de {chartData.length} leituras. Exporte o CSV para ver todas.
+        </p>
+      )}
+    </div>
+  );
+};
+
+// ─── Component Principal ──────────────────────────────────────────────────────
 
 const HistoricoPage = () => {
-  const [period, setPeriod]           = useState("24h");
-  const [climaData, setClimaData]     = useState([]);
-  const [chuvaData, setChuvaData]     = useState([]);
-  const [sensores, setSensores]       = useState([]);
-  const [loading, setLoading]         = useState(true);
-  const [refreshing, setRefreshing]   = useState(false);
-  const [showSimulator, setShowSimulator] = useState(false);
-  const [simulating, setSimulating]   = useState(false);
-
-  // Simulator form
-  const [sim, setSim] = useState({
-    tipo:"clima", idSensor:"1",
-    temperature:"24.5", humidity:"65",
-    mm:"2.5", chovendo:true,
-  });
+  const [sensores, setSensores]             = useState([]);
+  const [sensorSelecionado, setSensor]      = useState(null);
+  const [leituras, setLeituras]             = useState([]);
+  const [period, setPeriod]                 = useState("24h");
+  const [search, setSearch]                 = useState("");
+  const [loadingSensores, setLoadingSensores] = useState(true);
+  const [loadingLeituras, setLoadingLeituras] = useState(false);
 
   const periodCfg = PERIODS.find((p) => p.key === period);
 
-  const fetchData = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
-    else setRefreshing(true);
+  // ── Buscar lista de sensores ─────────────────────────────────
+  useEffect(() => {
+    sensorService.listar()
+      .then((res) => setSensores(res.data || []))
+      .catch(() => toast.error("Erro ao carregar sensores."))
+      .finally(() => setLoadingSensores(false));
+  }, []);
 
-    const now   = new Date();
-    const start = new Date(now - periodCfg.hours * 3600 * 1000).toISOString();
-
-    const [climaRes, chuvaRes, sensRes] = await Promise.allSettled([
-      leituraService.listarClima({ limit: periodCfg.limit, dataInicio: start }),
-      leituraService.listarChuva({ limit: periodCfg.limit, dataInicio: start }),
-      sensorService.listar(),
-    ]);
-
-    if (climaRes.status === "fulfilled") setClimaData(climaRes.value.data || []);
-    if (chuvaRes.status === "fulfilled") setChuvaData(chuvaRes.value.data || []);
-    if (sensRes.status === "fulfilled")  setSensores(sensRes.value.data  || []);
-
-    setLoading(false);
-    setRefreshing(false);
-  }, [period, periodCfg]);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
-
-  // ── Processed chart data ────────────────────────────────────
-  const climaChart = useMemo(() =>
-    [...climaData].reverse().map((l) => ({
-      name:        new Date(l.dataHora).toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" }),
-      umidade:     l.humidity    ?? 0,
-      temperatura: l.temperature ?? 0,
-    })),
-  [climaData]);
-
-  const chuvaChart = useMemo(() =>
-    [...chuvaData].reverse().map((l) => ({
-      name: new Date(l.dataHora).toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" }),
-      chuva: l.valor ?? 0,
-    })),
-  [chuvaData]);
-
-  const reservoirChart = useMemo(() => generateReservoirData(climaChart), [climaChart]);
-
-  // ── KPI calculations ────────────────────────────────────────
-  const umidadeMedia = useMemo(() =>
-    round(avg(climaData.map((l) => l.humidity ?? 0))), [climaData]);
-
-  const chuvaAcumulada = useMemo(() =>
-    round(sum(chuvaData.map((l) => l.valor ?? 0)), 0), [chuvaData]);
-
-  const tempMedia = useMemo(() =>
-    round(avg(climaData.map((l) => l.temperature ?? 0))), [climaData]);
-
-  const aguaReaproveitada = useMemo(() =>
-    round(chuvaAcumulada * 3.2, 0), [chuvaAcumulada]);
-
-  // ── Simulator ────────────────────────────────────────────────
-  const handleSimulate = async (e) => {
-    e.preventDefault();
-    setSimulating(true);
+  // ── Buscar leituras do sensor selecionado ────────────────────
+  const fetchLeituras = useCallback(async (sensor, cfg) => {
+    if (!sensor) return;
+    setLoadingLeituras(true);
     try {
-      if (sim.tipo === "clima") {
-        await leituraService.registrarClima({
-          idSensor:    Number(sim.idSensor),
-          temperature: Number(sim.temperature),
-          humidity:    Number(sim.humidity),
-        });
-      } else {
-        await leituraService.registrarChuva({
-          idSensor: Number(sim.idSensor),
-          mm:       Number(sim.mm),
-          chovendo: sim.chovendo,
-        });
-      }
-      toast.success("Leitura simulada enviada!");
-      setShowSimulator(false);
-      fetchData(true);
+      const now   = new Date();
+      const start = new Date(now - cfg.hours * 3600_000).toISOString();
+      const res   = await leituraService.listarPorSensor(sensor.idSensor || sensor.id_sensor, {
+        limit: cfg.limit,
+        dataInicio: start,
+      });
+      setLeituras(res.data || []);
     } catch {
-      toast.error("Erro ao simular leitura. Verifique o ID do sensor.");
+      toast.error("Erro ao carregar leituras.");
+      setLeituras([]);
     } finally {
-      setSimulating(false);
+      setLoadingLeituras(false);
     }
-  };
+  }, []);
 
-  // ── Export CSV ────────────────────────────────────────────────
+  useEffect(() => {
+    if (sensorSelecionado) fetchLeituras(sensorSelecionado, periodCfg);
+  }, [sensorSelecionado, period, fetchLeituras, periodCfg]);
+
+  // ── Parser dinâmico ──────────────────────────────────────────
+  const parsed = useMemo(
+    () => parseLeituras(leituras, sensorSelecionado?.tipoSensor),
+    [leituras, sensorSelecionado]
+  );
+
+  const kpis = useMemo(
+    () => calcKpis(parsed.chartData, parsed.series),
+    [parsed]
+  );
+
+  // ── Sensores filtrados ───────────────────────────────────────
+  const sensoresFiltrados = useMemo(() => {
+    if (!search.trim()) return sensores;
+    const q = search.toLowerCase();
+    return sensores.filter(
+      (s) =>
+        (s.nome || "").toLowerCase().includes(q) ||
+        (s.tipoSensor?.nome || "").toLowerCase().includes(q)
+    );
+  }, [sensores, search]);
+
+  // ── Exportar CSV ──────────────────────────────────────────────
   const handleExport = () => {
-    const rows = [
-      ["Tipo","DataHora","Temperatura","Umidade","Chuva_mm"],
-      ...climaData.map((l) => ["clima", l.dataHora, l.temperature ?? "", l.humidity ?? "", ""]),
-      ...chuvaData.map((l) => ["chuva", l.dataHora, "", "", l.valor ?? ""]),
-    ];
-    const csv = rows.map((r) => r.join(";")).join("\n");
-    const blob = new Blob([csv], { type:"text/csv;charset=utf-8;" });
-    const url  = URL.createObjectURL(blob);
-    const a    = Object.assign(document.createElement("a"), { href:url, download:`historico_${period}.csv` });
-    a.click();
-    URL.revokeObjectURL(url);
+    if (!parsed.chartData.length) { toast.warn("Sem dados para exportar."); return; }
+    exportCsv(parsed.chartData, parsed.series, sensorSelecionado?.nome, period);
     toast.success("CSV exportado!");
   };
 
-  // ── Render ───────────────────────────────────────────────────
-  return (
-    <div style={{ display:"flex", flexDirection:"column", gap:24 }} className="animate-fade-up">
+  // ── Render ────────────────────────────────────────────────────
+  const IconComp = sensorSelecionado ? getSensorIcon(sensorSelecionado) : Cpu;
+  const sensorColor = sensorSelecionado ? getSensorColor(sensorSelecionado) : { color: "#10b981", bg: "#ecfdf5" };
+  const primaryKpiKey = parsed.series[0]?.key;
+  const primaryKpi    = primaryKpiKey ? kpis[primaryKpiKey] : null;
 
-      {/* Header */}
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start",
-                    flexWrap:"wrap", gap:12 }}>
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }} className="animate-fade-up">
+
+      {/* ── Header ── */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start",
+                    flexWrap: "wrap", gap: 12 }}>
         <div>
-          <span className="badge badge-info" style={{ marginBottom:8 }}>Dados consolidados</span>
-          <h1 style={{ fontSize:26, fontWeight:800, margin:0 }}>Histórico do sistema</h1>
-          <p style={{ fontSize:13, color:"#6b7280", marginTop:4 }}>
-            Análise temporal das leituras de sensores e do desempenho hídrico.
+          <span className="badge badge-info" style={{ marginBottom: 8 }}>Dados consolidados</span>
+          <h1 style={{ fontSize: 26, fontWeight: 800, margin: 0 }}>Histórico do sistema</h1>
+          <p style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>
+            Selecione um sensor para visualizar suas leituras no período.
           </p>
         </div>
 
-        <div style={{ display:"flex", gap:10, alignItems:"center", flexWrap:"wrap" }}>
-          {/* Period selector */}
-          <div style={{ display:"flex", gap:4, background:"white", padding:4,
-                        borderRadius:12, boxShadow:"var(--shadow-sm)",
-                        border:"1px solid rgba(16,185,129,0.1)" }}>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          {/* Período */}
+          <div style={{ display: "flex", gap: 4, background: "white", padding: 4,
+                        borderRadius: 12, boxShadow: "var(--shadow-sm)",
+                        border: "1px solid rgba(16,185,129,0.1)" }}>
             {PERIODS.map(({ key, label }) => (
               <button key={key} onClick={() => setPeriod(key)}
-                style={{ padding:"7px 16px", borderRadius:8, border:"none", cursor:"pointer",
+                style={{ padding: "7px 14px", borderRadius: 8, border: "none", cursor: "pointer",
                          background: period === key ? "#064e3b" : "transparent",
                          color: period === key ? "white" : "#6b7280",
-                         fontWeight:600, fontSize:13, transition:"all 0.15s" }}>
+                         fontWeight: 600, fontSize: 13, transition: "all 0.15s" }}>
                 {label}
               </button>
             ))}
           </div>
 
-          <button onClick={() => setShowSimulator((v) => !v)} className="hover-scale"
-            style={{ background:"white", border:"1px solid rgba(16,185,129,0.12)", borderRadius:10,
-                     padding:"9px 16px", fontSize:13, fontWeight:600, color:"#047857",
-                     display:"flex", alignItems:"center", gap:7, cursor:"pointer",
-                     boxShadow:"var(--shadow-sm)" }}>
-            {showSimulator ? <X size={14}/> : <Plus size={14}/>}
-            Simular Leitura
-          </button>
-
           <button onClick={handleExport} className="hover-scale"
-            style={{ background:"linear-gradient(135deg,#10b981,#059669)", border:"none",
-                     borderRadius:10, padding:"9px 18px", fontSize:13, fontWeight:600,
-                     color:"white", display:"flex", alignItems:"center", gap:7,
-                     cursor:"pointer", boxShadow:"var(--shadow-md)" }}>
-            <Download size={14}/>
-            Exportar
+            style={{ background: "linear-gradient(135deg,#10b981,#059669)", border: "none",
+                     borderRadius: 10, padding: "9px 18px", fontSize: 13, fontWeight: 600,
+                     color: "white", display: "flex", alignItems: "center", gap: 7,
+                     cursor: "pointer", boxShadow: "var(--shadow-md)" }}>
+            <Download size={14} /> Exportar CSV
           </button>
         </div>
       </div>
 
-      {/* Simulator */}
-      {showSimulator && (
-        <div className="glass-panel" style={{ padding:24, background:"white",
-                                              border:"1px solid rgba(16,185,129,0.12)" }}>
-          <h2 style={{ fontSize:16, marginBottom:16 }}>Simulador de Sensores IoT</h2>
-          <form onSubmit={handleSimulate}
-            style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))", gap:14 }}>
-            <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-              <label style={{ fontSize:12, fontWeight:600, color:"#4b5563" }}>Tipo de Leitura</label>
-              <select value={sim.tipo} onChange={(e) => setSim((s) => ({ ...s, tipo:e.target.value }))}
-                style={{ padding:"9px 12px", borderRadius:8,
-                         border:"1px solid rgba(16,185,129,0.2)", outline:"none",
-                         background:"white", fontSize:13 }}>
-                <option value="clima">Clima (Temp/Umidade)</option>
-                <option value="chuva">Chuva (Pluviômetro)</option>
-              </select>
+      {/* ── Layout 2 colunas ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 20, alignItems: "start" }}
+           className="historico-grid">
+
+        {/* ── Coluna Esquerda: Lista de Sensores ── */}
+        <div className="glass-panel" style={{ padding: 0, background: "white", overflow: "hidden" }}>
+          {/* Search */}
+          <div style={{ padding: "14px 14px 10px", borderBottom: "1px solid #f3f4f6" }}>
+            <div style={{ position: "relative" }}>
+              <Search size={14} style={{ position: "absolute", left: 10, top: "50%",
+                                         transform: "translateY(-50%)", color: "#9ca3af" }} />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar sensor..."
+                style={{ width: "100%", padding: "8px 10px 8px 30px", borderRadius: 8,
+                         border: "1px solid rgba(16,185,129,0.15)", outline: "none",
+                         fontSize: 12, background: "#fafafa" }}
+              />
             </div>
-
-            <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-              <label style={{ fontSize:12, fontWeight:600, color:"#4b5563" }}>ID Sensor</label>
-              <select value={sim.idSensor} onChange={(e) => setSim((s) => ({ ...s, idSensor:e.target.value }))}
-                style={{ padding:"9px 12px", borderRadius:8,
-                         border:"1px solid rgba(16,185,129,0.2)", outline:"none",
-                         background:"white", fontSize:13 }}>
-                {sensores.length > 0
-                  ? sensores.map((s) => (
-                      <option key={s.idSensor || s.id_sensor} value={s.idSensor || s.id_sensor}>
-                        #{s.idSensor || s.id_sensor} — {s.nome}
-                      </option>
-                    ))
-                  : <option value="1">Sensor #1</option>}
-              </select>
-            </div>
-
-            {sim.tipo === "clima" ? (
-              <>
-                <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-                  <label style={{ fontSize:12, fontWeight:600, color:"#4b5563" }}>Temperatura (°C)</label>
-                  <input type="number" step="0.1" value={sim.temperature}
-                    onChange={(e) => setSim((s) => ({ ...s, temperature:e.target.value }))}
-                    style={{ padding:"9px 12px", borderRadius:8,
-                             border:"1px solid rgba(16,185,129,0.2)", outline:"none", fontSize:13 }}/>
-                </div>
-                <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-                  <label style={{ fontSize:12, fontWeight:600, color:"#4b5563" }}>Umidade (%)</label>
-                  <input type="number" step="0.1" value={sim.humidity}
-                    onChange={(e) => setSim((s) => ({ ...s, humidity:e.target.value }))}
-                    style={{ padding:"9px 12px", borderRadius:8,
-                             border:"1px solid rgba(16,185,129,0.2)", outline:"none", fontSize:13 }}/>
-                </div>
-              </>
-            ) : (
-              <>
-                <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-                  <label style={{ fontSize:12, fontWeight:600, color:"#4b5563" }}>Chuva (mm/h)</label>
-                  <input type="number" step="0.1" value={sim.mm}
-                    onChange={(e) => setSim((s) => ({ ...s, mm:e.target.value }))}
-                    style={{ padding:"9px 12px", borderRadius:8,
-                             border:"1px solid rgba(16,185,129,0.2)", outline:"none", fontSize:13 }}/>
-                </div>
-                <div style={{ display:"flex", alignItems:"center", gap:8, paddingTop:20 }}>
-                  <label style={{ display:"flex", alignItems:"center", gap:8, fontSize:13,
-                                  fontWeight:600, color:"#4b5563", cursor:"pointer" }}>
-                    <input type="checkbox" checked={sim.chovendo}
-                      onChange={(e) => setSim((s) => ({ ...s, chovendo:e.target.checked }))}
-                      style={{ width:16, height:16, accentColor:"#10b981" }}/>
-                    Está chovendo?
-                  </label>
-                </div>
-              </>
-            )}
-
-            <div style={{ gridColumn:"1/-1", display:"flex", justifyContent:"flex-end", gap:10 }}>
-              <button type="button" onClick={() => setShowSimulator(false)}
-                style={{ padding:"9px 20px", borderRadius:8, border:"1px solid #d1d5db",
-                         background:"white", cursor:"pointer", fontSize:13 }}>
-                Cancelar
-              </button>
-              <button type="submit" disabled={simulating}
-                style={{ padding:"9px 24px", borderRadius:8, border:"none",
-                         background:"linear-gradient(135deg,#10b981,#059669)", color:"white",
-                         cursor:"pointer", fontWeight:600, fontSize:13,
-                         display:"flex", alignItems:"center", gap:7 }}>
-                <Send size={13}/>
-                {simulating ? "Enviando..." : "Simular e Enviar"}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* KPI Cards */}
-      {loading ? (
-        <div style={{ display:"flex", gap:14, flexWrap:"wrap" }}>
-          {Array.from({length:4}).map((_,i) => (
-            <div key={i} className="glass-panel" style={{ flex:"1 1 160px", height:100, padding:20 }}>
-              <div className="skeleton" style={{ height:14, width:"40%", marginBottom:10 }}/>
-              <div className="skeleton" style={{ height:32, width:"60%" }}/>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div style={{ display:"flex", gap:14, flexWrap:"wrap" }}>
-          <KpiCard
-            icon={<Droplet size={18}/>}
-            value={umidadeMedia > 0 ? `${umidadeMedia}%` : "—"}
-            unit="" label="Umidade média"
-            delta={umidadeMedia > 0 ? +4 : undefined} deltaUnit="%"
-          />
-          <KpiCard
-            icon={<CloudRain size={18}/>}
-            value={chuvaAcumulada > 0 ? `${chuvaAcumulada}mm` : "—"}
-            unit="" label="Chuva acumulada"
-            delta={chuvaAcumulada > 0 ? +12 : undefined} deltaUnit="mm"
-          />
-          <KpiCard
-            icon={<Thermometer size={18}/>}
-            value={tempMedia > 0 ? `${tempMedia}°C` : "—"}
-            unit="" label="Temp. média"
-            delta={tempMedia > 0 ? -1 : undefined} deltaUnit="°C"
-            positiveIsGood={false}
-          />
-          <KpiCard
-            icon={<Recycle size={18}/>}
-            value={aguaReaproveitada > 0 ? `${aguaReaproveitada}L` : "—"}
-            unit="" label="Água reaproveitada"
-            delta={aguaReaproveitada > 0 ? +8 : undefined} deltaUnit="%"
-          />
-        </div>
-      )}
-
-      {/* Main chart — Umidade & Temperatura */}
-      <div className="glass-panel" style={{ padding:24, background:"white" }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
-                      marginBottom:20, flexWrap:"wrap", gap:10 }}>
-          <div>
-            <h2 style={{ fontSize:16, margin:0 }}>Umidade do solo & temperatura</h2>
-            <p style={{ fontSize:12, color:"#6b7280", marginTop:2 }}>Correlação ambiental no período</p>
           </div>
-          <button onClick={() => fetchData(true)}
-            style={{ background:"transparent", border:"none", cursor:"pointer",
-                     color:"#9ca3af", display:"flex", alignItems:"center", gap:5, fontSize:12 }}>
-            <RefreshCw size={13} className={refreshing ? "animate-spin" : ""}/>
-          </button>
+
+          {/* Lista */}
+          <div style={{ maxHeight: 520, overflowY: "auto" }}>
+            {loadingSensores ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} style={{ padding: "12px 14px", borderBottom: "1px solid #f9fafb" }}>
+                  <div className="skeleton" style={{ height: 12, width: "60%", marginBottom: 6 }} />
+                  <div className="skeleton" style={{ height: 10, width: "40%" }} />
+                </div>
+              ))
+            ) : sensoresFiltrados.length === 0 ? (
+              <div style={{ padding: 24, textAlign: "center", color: "#9ca3af", fontSize: 13 }}>
+                Nenhum sensor encontrado.
+              </div>
+            ) : (
+              sensoresFiltrados.map((s) => {
+                const SIcon = getSensorIcon(s);
+                const { color, bg } = getSensorColor(s);
+                const isSelected = sensorSelecionado?.idSensor === (s.idSensor || s.id_sensor);
+                const val = s.valorAtual != null ? parseFloat(s.valorAtual) : null;
+
+                return (
+                  <button
+                    key={s.idSensor || s.id_sensor}
+                    onClick={() => setSensor(s)}
+                    style={{
+                      width: "100%", display: "flex", alignItems: "center", gap: 12,
+                      padding: "12px 14px", background: isSelected ? `${color}0f` : "transparent",
+                      border: "none", borderBottom: "1px solid #f9fafb",
+                      borderLeft: isSelected ? `3px solid ${color}` : "3px solid transparent",
+                      cursor: "pointer", transition: "all 0.15s", textAlign: "left",
+                    }}
+                  >
+                    <div style={{ width: 34, height: 34, borderRadius: 8, background: bg,
+                                  display: "flex", alignItems: "center", justifyContent: "center",
+                                  color, flexShrink: 0 }}>
+                      <SIcon size={16} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#064e3b",
+                                    lineHeight: 1.2, whiteSpace: "nowrap",
+                                    overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {s.nome || `Sensor #${s.idSensor}`}
+                      </div>
+                      <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>
+                        {s.tipoSensor?.nome || "Tipo desconhecido"}
+                        {val != null && (
+                          <span style={{ color, fontWeight: 600, marginLeft: 6 }}>
+                            · {fmt(val, 1)} {s.tipoSensor?.unidade || ""}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {isSelected && <ChevronRight size={14} color={color} style={{ flexShrink: 0 }} />}
+                  </button>
+                );
+              })
+            )}
+          </div>
         </div>
 
-        {loading ? (
-          <div className="skeleton" style={{ height:240, borderRadius:12 }}/>
-        ) : climaChart.length === 0 ? (
-          <div style={{ height:240, display:"flex", alignItems:"center",
-                        justifyContent:"center", color:"#9ca3af", fontSize:13 }}>
-            Sem dados de clima para o período selecionado.
+        {/* ── Coluna Direita: Gráfico e Dados ── */}
+        {!sensorSelecionado ? (
+          <div className="glass-panel" style={{
+            padding: "60px 24px", background: "white", textAlign: "center",
+            display: "flex", flexDirection: "column", alignItems: "center", gap: 12,
+          }}>
+            <div style={{ width: 56, height: 56, borderRadius: 16, background: "#ecfdf5",
+                          display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Activity size={26} color="#10b981" />
+            </div>
+            <h2 style={{ fontSize: 18, fontWeight: 700, color: "#064e3b" }}>
+              Selecione um sensor
+            </h2>
+            <p style={{ fontSize: 13, color: "#6b7280", maxWidth: 320 }}>
+              Escolha um sensor na lista ao lado para visualizar o histórico de leituras e os gráficos.
+            </p>
           </div>
         ) : (
-          <div style={{ width:"100%", height:240 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={climaChart} margin={{ top:5, right:8, left:-22, bottom:0 }}>
-                <defs>
-                  <linearGradient id="humGradHist" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.02}/>
-                  </linearGradient>
-                  <linearGradient id="tempGradHist" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.2}/>
-                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.02}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
-                <XAxis dataKey="name" stroke="#c1c9d2" fontSize={10} tickLine={false}
-                       interval={Math.floor(climaChart.length / 8)}/>
-                <YAxis stroke="#c1c9d2" fontSize={10} tickLine={false}/>
-                <Tooltip content={<ChartTooltip/>}/>
-                <Legend iconType="circle" wrapperStyle={{ fontSize:11, paddingTop:8 }}/>
-                <Area type="monotone" dataKey="umidade" name="umidade"
-                  stroke="#10b981" strokeWidth={2.5} fill="url(#humGradHist)"/>
-                <Area type="monotone" dataKey="temperatura" name="temperatura"
-                  stroke="#f59e0b" strokeWidth={2} fill="url(#tempGradHist)"/>
-              </AreaChart>
-            </ResponsiveContainer>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+            {/* Cabeçalho do sensor */}
+            <div className="glass-panel" style={{
+              padding: "18px 22px", background: "white",
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+              flexWrap: "wrap", gap: 12,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 42, height: 42, borderRadius: 12,
+                              background: sensorColor.bg,
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              color: sensorColor.color }}>
+                  <IconComp size={20} />
+                </div>
+                <div>
+                  <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>
+                    {sensorSelecionado.nome || `Sensor #${sensorSelecionado.idSensor}`}
+                  </h2>
+                  <p style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
+                    {sensorSelecionado.tipoSensor?.nome} · {parsed.label}
+                    {sensorSelecionado.estadoAtual && (
+                      <span className="badge badge-success" style={{ marginLeft: 8, fontSize: 10 }}>
+                        {sensorSelecionado.estadoAtual}
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => fetchLeituras(sensorSelecionado, periodCfg)}
+                style={{ background: "white", border: "1px solid rgba(16,185,129,0.15)",
+                         borderRadius: 8, padding: "7px 14px", fontSize: 12, fontWeight: 600,
+                         color: "#047857", display: "flex", alignItems: "center", gap: 6,
+                         cursor: "pointer", boxShadow: "var(--shadow-sm)" }}>
+                <RefreshCw size={13} className={loadingLeituras ? "animate-spin" : ""} />
+                Atualizar
+              </button>
+            </div>
+
+            {/* KPIs */}
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              {parsed.series.map((s) => {
+                const k = kpis[s.key];
+                return k ? (
+                  <React.Fragment key={s.key}>
+                    <KpiCard label={`Média — ${s.label.split(" ")[0]}`}
+                      value={fmt(k.media)} unit={parsed.unit.split(" / ")[0]}
+                      color={s.color} />
+                    <KpiCard label="Máximo"  value={fmt(k.max)}  unit="" color={s.color} />
+                    <KpiCard label="Mínimo"  value={fmt(k.min)}  unit="" color={s.color} />
+                  </React.Fragment>
+                ) : null;
+              })}
+              <KpiCard label="Leituras" value={fmt(parsed.chartData.length, 0)} unit="" />
+
+              {/* Badge de qualidade do ar */}
+              {parsed.tipo === "ar" && parsed.qualidade && primaryKpi?.media != null && (() => {
+                const q = parsed.qualidade(primaryKpi.media);
+                return q ? (
+                  <div className="glass-panel" style={{
+                    padding: "16px 18px", background: q.color + "0f",
+                    border: `1px solid ${q.color}30`, flex: "1 1 120px", minWidth: 0,
+                  }}>
+                    <div style={{ fontSize: 11, color: "#9ca3af", fontWeight: 600, marginBottom: 6,
+                                  textTransform: "uppercase", letterSpacing: "0.06em" }}>Qualidade</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: q.color,
+                                  fontFamily: "var(--font-heading)" }}>{q.label}</div>
+                  </div>
+                ) : null;
+              })()}
+            </div>
+
+            {/* Gráfico */}
+            <div className="glass-panel" style={{ padding: "22px 22px 14px", background: "white" }}>
+              <div style={{ display: "flex", justifyContent: "space-between",
+                            alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
+                <div>
+                  <h3 style={{ fontSize: 15, margin: 0 }}>Leituras — {period}</h3>
+                  <p style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>
+                    {parsed.chartData.length} pontos · unidade: {parsed.unit || "—"}
+                  </p>
+                </div>
+                <span className="badge badge-success" style={{ fontSize: 10 }}>
+                  <Activity size={9} /> Tempo real
+                </span>
+              </div>
+
+              {loadingLeituras ? (
+                <div className="skeleton" style={{ height: 260, borderRadius: 12 }} />
+              ) : (
+                <SensorChart chartData={parsed.chartData} series={parsed.series} tipo={parsed.tipo} />
+              )}
+            </div>
+
+            {/* Tabela */}
+            <div className="glass-panel" style={{ padding: 22, background: "white" }}>
+              <h3 style={{ fontSize: 15, margin: "0 0 14px" }}>
+                Últimas leituras
+                <span style={{ fontSize: 11, color: "#9ca3af", fontWeight: 400, marginLeft: 8 }}>
+                  (máx. 50 exibidas)
+                </span>
+              </h3>
+              {loadingLeituras ? (
+                <div className="skeleton" style={{ height: 160, borderRadius: 12 }} />
+              ) : (
+                <LeiturasTable chartData={parsed.chartData} series={parsed.series} />
+              )}
+            </div>
           </div>
         )}
       </div>
 
-      {/* Two smaller charts */}
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20 }} className="hist-grid">
-
-        {/* Rain chart */}
-        <div className="glass-panel" style={{ padding:24, background:"white" }}>
-          <div style={{ marginBottom:16 }}>
-            <h2 style={{ fontSize:15, margin:0 }}>Chuva (mm)</h2>
-            <p style={{ fontSize:12, color:"#6b7280", marginTop:2 }}>Precipitação acumulada no período</p>
-          </div>
-          {loading ? (
-            <div className="skeleton" style={{ height:180, borderRadius:12 }}/>
-          ) : chuvaChart.length === 0 ? (
-            <div style={{ height:180, display:"flex", alignItems:"center",
-                          justifyContent:"center", color:"#9ca3af", fontSize:13 }}>
-              Sem dados de chuva no período.
-            </div>
-          ) : (
-            <div style={{ width:"100%", height:180 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chuvaChart} margin={{ top:5, right:8, left:-22, bottom:0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
-                  <XAxis dataKey="name" stroke="#c1c9d2" fontSize={10} tickLine={false}
-                         interval={Math.floor(chuvaChart.length / 6)}/>
-                  <YAxis stroke="#c1c9d2" fontSize={10} tickLine={false}/>
-                  <Tooltip content={<ChartTooltip/>}/>
-                  <Bar dataKey="chuva" name="Chuva (mm/h)" fill="#3b82f6"
-                       radius={[4,4,0,0]} maxBarSize={20}/>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </div>
-
-        {/* Reservoir & flow chart */}
-        <div className="glass-panel" style={{ padding:24, background:"white" }}>
-          <div style={{ marginBottom:16 }}>
-            <h2 style={{ fontSize:15, margin:0 }}>Nível do reservatório & vazão</h2>
-            <p style={{ fontSize:12, color:"#6b7280", marginTop:2 }}>Estimativa baseada nas leituras</p>
-          </div>
-          {loading ? (
-            <div className="skeleton" style={{ height:180, borderRadius:12 }}/>
-          ) : (
-            <div style={{ width:"100%", height:180 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={reservoirChart} margin={{ top:5, right:8, left:-22, bottom:0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
-                  <XAxis dataKey="name" stroke="#c1c9d2" fontSize={10} tickLine={false}
-                         interval={Math.floor(reservoirChart.length / 6)}/>
-                  <YAxis stroke="#c1c9d2" fontSize={10} tickLine={false}/>
-                  <Tooltip content={<ChartTooltip/>}/>
-                  <Legend iconType="circle" wrapperStyle={{ fontSize:11, paddingTop:8 }}/>
-                  <Line type="monotone" dataKey="nivel" name="Nível (%)"
-                    stroke="#10b981" strokeWidth={2.5} dot={false}/>
-                  <Line type="monotone" dataKey="vazao" name="Vazão (L/min)"
-                    stroke="#06b6d4" strokeWidth={2} dot={false} strokeDasharray="5 3"/>
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </div>
-      </div>
-
       <style>{`
-        @media (max-width: 860px) { .hist-grid { grid-template-columns: 1fr !important; } }
+        @media (max-width: 900px) {
+          .historico-grid { grid-template-columns: 1fr !important; }
+        }
       `}</style>
     </div>
   );

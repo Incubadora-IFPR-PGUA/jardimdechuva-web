@@ -3,7 +3,7 @@ import {
   Droplet, CloudRain, Waves, Sun, Thermometer, Wind,
   FlaskConical, Gauge, Droplets, ScanLine, Cpu,
   Power, RefreshCw, AlertTriangle, CheckCircle,
-  XCircle, Info, Sliders, Activity
+  XCircle, Info, Sliders, Activity, Clock
 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
@@ -11,33 +11,35 @@ import {
 } from "recharts";
 import { toast } from "react-toastify";
 import { sensorService, atuadorService, leituraService, alertaService } from "../../services/api";
+import { parseLeituras } from "../../utils/sensorJsonParser";
 import s from "./Dashboard.module.css";
 
-/* ─── Helpers ─────────────────────────────────────────────── */
 const getSensorConfig = (sensor) => {
   const tipo = (sensor.tipoSensor?.nome || sensor.nome || "").toLowerCase();
-  let Icon = Cpu, unit = "", maxValue = 100, color = "#10b981", progressColor = "green";
+  let Icon = Cpu, color = "#10b981", progressColor = "green";
 
-  if (tipo.includes("solo") || (tipo.includes("umidade") && !tipo.includes("ar"))) {
-    Icon = Droplet; unit = "%";
+  if (tipo.includes("pm") || tipo.includes("partícula") || tipo.includes("qualidade do ar")) {
+    Icon = Wind;        color = "#8b5cf6"; progressColor = "purple";
+  } else if (tipo.includes("solo") || (tipo.includes("umidade") && !tipo.includes("ar"))) {
+    Icon = Droplet;
   } else if (tipo.includes("chuva") || tipo.includes("pluv")) {
-    Icon = CloudRain; unit = "mm/h"; maxValue = 50; color = "#3b82f6"; progressColor = "blue";
+    Icon = CloudRain;   color = "#3b82f6"; progressColor = "blue";
   } else if (tipo.includes("nível") || tipo.includes("nivel") || tipo.includes("ultrass")) {
-    Icon = Waves; unit = "%";
+    Icon = Waves;
   } else if (tipo.includes("luminosidade") || tipo.includes("luz") || tipo.includes("bh17")) {
-    Icon = Sun; unit = "klx"; color = "#f59e0b"; progressColor = "orange";
+    Icon = Sun;         color = "#f59e0b"; progressColor = "orange";
   } else if (tipo.includes("temperatura") || tipo.includes("dht") || tipo.includes("bme")) {
-    Icon = Thermometer; unit = "°C"; maxValue = 50; color = "#f97316"; progressColor = "orange";
+    Icon = Thermometer; color = "#f97316"; progressColor = "orange";
   } else if (tipo.includes("ar") || tipo.includes("umidade")) {
-    Icon = Wind; unit = "%";
+    Icon = Wind;
   } else if (tipo.includes("ph")) {
-    Icon = FlaskConical; unit = "pH"; maxValue = 14; color = "#8b5cf6"; progressColor = "purple";
+    Icon = FlaskConical; color = "#8b5cf6"; progressColor = "purple";
   } else if (tipo.includes("vazão") || tipo.includes("vazao")) {
-    Icon = Gauge; unit = "L/min"; maxValue = 20; color = "#06b6d4"; progressColor = "blue";
+    Icon = Gauge;        color = "#06b6d4"; progressColor = "blue";
   } else if (tipo.includes("qualidade") || tipo.includes("turbidez")) {
-    Icon = Droplets; unit = "NTU";
+    Icon = Droplets;
   } else if (tipo.includes("presença") || tipo.includes("rfid")) {
-    Icon = ScanLine; unit = ""; maxValue = 1; color = "#7c3aed"; progressColor = "purple";
+    Icon = ScanLine;     color = "#7c3aed"; progressColor = "purple";
   }
 
   const estado = (sensor.estadoAtual || "normal").toLowerCase().trim();
@@ -47,12 +49,36 @@ const getSensorConfig = (sensor) => {
     fora: "badge-fora", chovendo: "badge-info", seco: "badge-success", diurno: "badge-diurno",
     noturno: "badge-noturno", estavel: "badge-estavel", estável: "badge-estavel",
     ligado: "badge-success", desligado: "badge-gray", online: "badge-success", offline: "badge-danger",
+    bom: "badge-success", moderado: "badge-warning",
   };
   const badgeClass = badgeMap[estado] || "badge-success";
   const badgeLabel = estado.charAt(0).toUpperCase() + estado.slice(1);
-  const val = parseFloat(sensor.valorAtual) || 0;
-  const progress = Math.min(100, Math.max(0, (val / maxValue) * 100));
-  return { Icon, unit, color, progressColor, badgeClass, badgeLabel, progress };
+  return { Icon, color, progressColor, badgeClass, badgeLabel };
+};
+
+// Formata a última leitura do sensor usando o parser dinâmico
+const formatUltimaLeitura = (leitura, tipoSensor) => {
+  if (!leitura) return null;
+  const parsed = parseLeituras([leitura], tipoSensor);
+  if (!parsed.series.length) return null;
+  const ponto = parsed.chartData[0];
+  return parsed.series
+    .map((s) => ponto[s.key] != null
+      ? `${Number(ponto[s.key]).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} ${s.label.match(/\(([^)]+)\)/)?.[1] || parsed.unit}`
+      : null
+    )
+    .filter(Boolean)
+    .join(" · ") || null;
+};
+
+// Hora relativa
+const horaRelativa = (dateStr) => {
+  if (!dateStr) return null;
+  const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
+  if (diff < 60)    return "agora";
+  if (diff < 3600)  return `${Math.floor(diff / 60)}min atrás`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h atrás`;
+  return `${Math.floor(diff / 86400)}d atrás`;
 };
 
 const getAlertIcon = (nivel) => {
@@ -83,6 +109,7 @@ const generateSoilData = () => {
 /* ─── Component ───────────────────────────────────────────── */
 const DashboardPage = () => {
   const [sensores, setSensores]             = useState([]);
+  const [ultimasLeituras, setUltimasLeituras] = useState({}); // { idSensor: leituraObj }
   const [atuadores, setAtuadores]           = useState([]);
   const [leiturasChuva, setLeiturasChuva]   = useState([]);
   const [leiturasClima, setLeiturasClima]   = useState([]);
@@ -103,7 +130,21 @@ const DashboardPage = () => {
       alertaService.listar({ limit: 10 }),
     ]);
     const [sensRes, atRes, chuvaRes, climaRes, alertRes] = results;
-    if (sensRes.status === "fulfilled")  setSensores(sensRes.value.data || []);
+    if (sensRes.status === "fulfilled")  {
+      const lista = sensRes.value.data || [];
+      setSensores(lista);
+      // Buscar última leitura de cada sensor em paralelo
+      const leiturasProm = lista.map((s) =>
+        leituraService.listarPorSensor(s.idSensor || s.id_sensor, { limit: 1 })
+          .then((r) => [s.idSensor || s.id_sensor, (r.data || [])[0] || null])
+          .catch(() => [s.idSensor || s.id_sensor, null])
+      );
+      Promise.all(leiturasProm).then((pares) => {
+        const mapa = {};
+        pares.forEach(([id, l]) => { mapa[id] = l; });
+        setUltimasLeituras(mapa);
+      });
+    }
     if (chuvaRes.status === "fulfilled") setLeiturasChuva(chuvaRes.value.data || []);
     if (climaRes.status === "fulfilled") setLeiturasClima(climaRes.value.data || []);
     if (alertRes.status === "fulfilled") setAlertas(alertRes.value.data || []);
@@ -204,7 +245,7 @@ const DashboardPage = () => {
         <div className={s.sectionHeader}>
           <div>
             <h2 className={s.sectionTitle}>Sensores ambientais</h2>
-            <p className={s.sectionSub}>Leituras em tempo real</p>
+            <p className={s.sectionSub}>Leituras em tempo real · {sensores.length} sensores</p>
           </div>
           <button className={`${s.refreshBtn} hover-scale`} onClick={() => loadData(true)}>
             <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} />
@@ -222,32 +263,71 @@ const DashboardPage = () => {
                 </div>
               ))
             : sensores.map((sensor) => {
-                const { Icon, unit, color, progressColor, badgeClass, badgeLabel, progress } = getSensorConfig(sensor);
-                const val = sensor.valorAtual != null ? parseFloat(sensor.valorAtual) : null;
+                const id = sensor.idSensor || sensor.id_sensor;
+                const { Icon, color, progressColor, badgeClass, badgeLabel } = getSensorConfig(sensor);
+                const ultimaLeitura = ultimasLeituras[id];
+                const valorFormatado = formatUltimaLeitura(ultimaLeitura, sensor.tipoSensor);
+                const tempoLeitura  = horaRelativa(ultimaLeitura?.dataHora || ultimaLeitura?.data_hora);
+
+                // Progresso baseado no valor_atual do sensor (fallback)
+                const valAtual = parseFloat(sensor.valorAtual) || 0;
+                const parsed   = ultimaLeitura ? parseLeituras([ultimaLeitura], sensor.tipoSensor) : null;
+                const primVal  = parsed?.chartData?.[0]?.[parsed?.series?.[0]?.key];
+                const maxProg  = parsed?.tipo === "ar" ? 150 : parsed?.tipo === "chuva" ? 50 : 100;
+                const progress = primVal != null
+                  ? Math.min(100, Math.max(0, (primVal / maxProg) * 100))
+                  : Math.min(100, Math.max(0, (valAtual / 100) * 100));
+
                 return (
-                  <div key={sensor.idSensor || sensor.id_sensor} className={`glass-panel hover-scale ${s.sensorCard}`}>
+                  <div key={id} className={`glass-panel hover-scale ${s.sensorCard}`}>
+                    {/* Top: ícone + nome + badge */}
                     <div className={s.sensorCardTop}>
-                      <div>
-                        <div className={s.sensorIconRow}>
-                          <div className={s.sensorIconBox} style={{ background: `${color}18`, color }}>
-                            <Icon size={16} />
-                          </div>
-                          <div>
-                            <div className={s.sensorName}>{sensor.nome || "Sensor"}</div>
-                            <div className={s.sensorType}>{sensor.tipoSensor?.nome || "—"}</div>
-                          </div>
+                      <div className={s.sensorIconRow}>
+                        <div className={s.sensorIconBox} style={{ background: `${color}18`, color }}>
+                          <Icon size={16} />
+                        </div>
+                        <div>
+                          <div className={s.sensorName}>{sensor.nome || `Sensor #${id}`}</div>
+                          <div className={s.sensorType}>{sensor.tipoSensor?.nome || "—"}</div>
                         </div>
                       </div>
                       <span className={`badge ${badgeClass}`} style={{ fontSize: 10 }}>{badgeLabel}</span>
                     </div>
-                    <div className={s.sensorValue}>
-                      <span className={s.sensorValueNum}>
-                        {val != null ? val.toLocaleString("pt-BR", { maximumFractionDigits: 1 }) : "—"}
-                      </span>
-                      {unit && <span className={s.sensorUnit}>{unit}</span>}
+
+                    {/* Valor da última leitura (via valor_json) */}
+                    <div>
+                      {valorFormatado ? (
+                        <div style={{ fontSize: 18, fontWeight: 800, color: "#064e3b",
+                                      fontFamily: "var(--font-heading)", lineHeight: 1.2 }}>
+                          {valorFormatado}
+                        </div>
+                      ) : sensor.valorAtual != null ? (
+                        <div className={s.sensorValue}>
+                          <span className={s.sensorValueNum}>
+                            {parseFloat(sensor.valorAtual).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}
+                          </span>
+                          {sensor.tipoSensor?.unidade && (
+                            <span className={s.sensorUnit}>{sensor.tipoSensor.unidade}</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span style={{ fontSize: 22, fontWeight: 700, color: "#d1d5db" }}>—</span>
+                      )}
+
+                      {/* Hora da leitura */}
+                      {tempoLeitura && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 4,
+                                      fontSize: 10, color: "#9ca3af", marginTop: 4 }}>
+                          <Clock size={10} />
+                          {tempoLeitura}
+                        </div>
+                      )}
                     </div>
+
+                    {/* Barra de progresso */}
                     <div className="sensor-progress">
-                      <div className={`sensor-progress-fill ${progressColor}`} style={{ width: `${progress}%` }} />
+                      <div className={`sensor-progress-fill ${progressColor}`}
+                           style={{ width: `${progress}%` }} />
                     </div>
                   </div>
                 );
