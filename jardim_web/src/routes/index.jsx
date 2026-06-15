@@ -1,26 +1,45 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+
+import { AuthProvider } from "../context/AuthContext";
+import ProtectedRoute from "../components/ProtectedRoute";
 import Layout from "../components/Layout";
 
-import Dashboard from "../pages/DashboardPage";
-import Sensores from "../pages/SensoresPage";
-import Atuadores from "../pages/AtuadoresPage";
-import Historico from "../pages/HistoricoPage";
-import Notificacoes from "../pages/NotificacoesPage";
+import LoginPage    from "../pages/Login";
+import Dashboard    from "../pages/Dashboard";
+import Sensores     from "../pages/Sensores";
+import Atuadores    from "../pages/Atuadores";
+import Historico    from "../pages/Historico";
+import Notificacoes from "../pages/Notificacoes";
 
-const AppRoutes = () => {
-  return (
-    <BrowserRouter>
-      <Layout>
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/sensores" element={<Sensores />} />
-          <Route path="/atuadores" element={<Atuadores />} />
-          <Route path="/historico" element={<Historico />} />
-          <Route path="/notificacoes" element={<Notificacoes />} />
-        </Routes>
-      </Layout>
+const AppRoutes = () => (
+  <BrowserRouter>
+    <AuthProvider>
+      <Routes>
+        {/* Rota pública */}
+        <Route path="/login" element={<LoginPage />} />
+
+        {/* Rotas protegidas */}
+        <Route
+          path="/*"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Routes>
+                  <Route path="/"             element={<Dashboard />} />
+                  <Route path="/sensores"     element={<Sensores />} />
+                  <Route path="/atuadores"    element={<Atuadores />} />
+                  <Route path="/historico"    element={<Historico />} />
+                  <Route path="/notificacoes" element={<Notificacoes />} />
+                  <Route path="*"             element={<Navigate to="/" replace />} />
+                </Routes>
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+
       <ToastContainer
         position="top-right"
         autoClose={3000}
@@ -33,8 +52,8 @@ const AppRoutes = () => {
         pauseOnHover
         theme="light"
       />
-    </BrowserRouter>
-  );
-};
+    </AuthProvider>
+  </BrowserRouter>
+);
 
 export default AppRoutes;

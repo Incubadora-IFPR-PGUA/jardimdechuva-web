@@ -1,0 +1,423 @@
+/* ============================================================
+   Dashboard.module.css
+   ============================================================ */
+
+/* ── Page wrapper ─────────────────────────────────────────── */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  animation: fadeInUp 0.32s ease forwards;
+}
+
+/* ── Loading ──────────────────────────────────────────────── */
+.loadingWrap {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.loadingText {
+  color: var(--color-dark-green);
+  font-weight: 600;
+}
+
+/* ── Banner ───────────────────────────────────────────────── */
+.banner {
+  padding: 28px 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.97), rgba(209,250,229,0.25));
+  border: 1px solid rgba(16,185,129,0.12);
+}
+
+.bannerInfo { flex: 1 1 460px; }
+
+.bannerTitle {
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  margin: 8px 0 10px;
+  color: var(--color-dark-green);
+  font-family: var(--font-heading);
+}
+
+.bannerDesc {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 1.65;
+  max-width: 620px;
+}
+
+/* ── KPI Cards ────────────────────────────────────────────── */
+.kpiRow {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.kpiCard {
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 90px;
+  background: white;
+  border: 1px solid rgba(16,185,129,0.08);
+}
+
+.kpiIcon { color: #10b981; margin-bottom: 6px; }
+
+.kpiValue {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--color-dark-green);
+  font-family: var(--font-heading);
+}
+
+.kpiLabel {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  letter-spacing: 0.08em;
+}
+
+/* ── Error banner ─────────────────────────────────────────── */
+.errorBanner {
+  padding: 11px 16px;
+  background: #fffbeb;
+  border: 1px solid #fef3c7;
+  border-radius: 12px;
+  color: #b45309;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+/* ── Section header ───────────────────────────────────────── */
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.sectionTitle {
+  font-size: 19px;
+  margin: 0;
+  color: var(--color-dark-green);
+  font-family: var(--font-heading);
+}
+
+.sectionSub {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.refreshBtn {
+  background: white;
+  border: 1px solid rgba(16,185,129,0.12);
+  border-radius: 10px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-mid-green);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  font-family: var(--font-sans);
+  transition: all 0.15s ease;
+}
+.refreshBtn:hover { background: #f0fdf4; }
+
+/* ── Sensor grid ──────────────────────────────────────────── */
+.sensorGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 14px;
+}
+
+/* ── Sensor card ──────────────────────────────────────────── */
+.sensorCard {
+  padding: 18px 20px;
+  background: white;
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  border: 1px solid rgba(16,185,129,0.07);
+}
+
+.sensorCardTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.sensorIconRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.sensorIconBox {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sensorName {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-dark-green);
+  line-height: 1.2;
+}
+
+.sensorType {
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+
+.sensorValue {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.sensorValueNum {
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--color-dark-green);
+  font-family: var(--font-heading);
+  line-height: 1;
+}
+
+.sensorUnit {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+/* ── Chart + Actuators grid ───────────────────────────────── */
+.dashGrid {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 20px;
+}
+
+/* ── Chart panel ──────────────────────────────────────────── */
+.chartPanel {
+  padding: 24px;
+  background: white;
+}
+
+.chartHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.chartTitle {
+  font-size: 16px;
+  margin: 0;
+  color: var(--color-dark-green);
+  font-family: var(--font-heading);
+}
+
+.chartSub {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.chartHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chartEmpty {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+/* ── Actuators panel ──────────────────────────────────────── */
+.actuatorsPanel {
+  padding: 22px;
+  background: white;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.actuatorsList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.actuatorItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: 14px;
+  transition: all 0.2s;
+}
+
+.actuatorItemOn {
+  border: 1px solid rgba(16,185,129,0.15);
+  background: rgba(16,185,129,0.04);
+}
+
+.actuatorItemOff {
+  border: 1px solid rgba(0,0,0,0.05);
+  background: #fafafa;
+}
+
+.actuatorLeft {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.actuatorIconBox {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.actuatorIconOn  { background: rgba(16,185,129,0.15); color: #059669; }
+.actuatorIconOff { background: #e5e7eb; color: #9ca3af; }
+
+.actuatorName {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-dark-green);
+}
+
+.actuatorDesc {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-top: 1px;
+}
+
+.actuatorNameRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── Automation info box ──────────────────────────────────── */
+.automationBox {
+  margin-top: auto;
+  padding: 14px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(16,185,129,0.06), rgba(16,185,129,0.12));
+  border: 1px solid rgba(16,185,129,0.1);
+  display: flex;
+  gap: 10px;
+}
+
+.automationTitle {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-dark-green);
+}
+
+.automationDesc {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  margin-top: 3px;
+  line-height: 1.5;
+}
+
+/* ── Alerts section ───────────────────────────────────────── */
+.alertsPanel {
+  padding: 24px;
+  background: white;
+}
+
+.alertsList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.alertItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #fafafa;
+  border: 1px solid #f3f4f6;
+}
+
+.alertLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.alertMsg {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.alertSensor {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-left: 8px;
+}
+
+.alertTime {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  margin-left: 12px;
+}
+
+.emptyAlerts {
+  text-align: center;
+  color: var(--color-text-muted);
+  padding: 20px 0;
+  font-size: 13px;
+}
+
+/* ── Responsivo ───────────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .dashGrid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+  .banner { padding: 20px 16px; }
+  .bannerTitle { font-size: 22px; }
+  .sensorGrid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+}

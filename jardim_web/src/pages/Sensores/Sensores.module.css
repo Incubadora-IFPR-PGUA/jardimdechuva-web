@@ -1,0 +1,275 @@
+/* ============================================================
+   Sensores.module.css
+   ============================================================ */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  animation: fadeInUp 0.32s ease forwards;
+}
+
+/* ── Header ───────────────────────────────────────────────── */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.headingGroup { display: flex; flex-direction: column; gap: 4px; }
+
+.title {
+  font-size: 26px;
+  font-weight: 800;
+  margin: 0;
+  color: var(--color-dark-green);
+  font-family: var(--font-heading);
+  line-height: 1.2;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.actions { display: flex; gap: 10px; }
+
+.btnOutline {
+  background: white;
+  border: 1px solid rgba(16, 185, 129, 0.12);
+  border-radius: 10px;
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-mid-green);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  font-family: var(--font-sans);
+  transition: background 0.15s;
+}
+.btnOutline:hover { background: #f0fdf4; }
+
+.btnPrimary {
+  background: linear-gradient(135deg, #10b981, #059669);
+  border: none;
+  border-radius: 10px;
+  padding: 9px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  font-family: var(--font-sans);
+  transition: opacity 0.15s;
+}
+.btnPrimary:hover { opacity: 0.9; }
+
+/* ── Form Panel ───────────────────────────────────────────── */
+.formPanel {
+  padding: 24px;
+  background: white;
+  border: 1px solid rgba(16, 185, 129, 0.12);
+}
+
+.formTitle {
+  font-size: 16px;
+  margin: 0 0 16px;
+  color: var(--color-dark-green);
+  font-family: var(--font-heading);
+}
+
+.form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.fieldLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.fieldInput,
+.fieldSelect {
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  outline: none;
+  font-size: 13px;
+  background: white;
+  font-family: var(--font-sans);
+  transition: border-color 0.2s;
+}
+.fieldInput:focus,
+.fieldSelect:focus { border-color: var(--color-primary); }
+
+.formActions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.btnCancel {
+  padding: 9px 20px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background: white;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: var(--font-sans);
+}
+
+.btnSubmit {
+  padding: 9px 24px;
+  border-radius: 8px;
+  border: none;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 600;
+  font-size: 13px;
+  font-family: var(--font-sans);
+}
+.btnSubmit:disabled { opacity: 0.7; cursor: not-allowed; }
+
+/* ── Filter bar ───────────────────────────────────────────── */
+.filterBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.searchWrap {
+  position: relative;
+  min-width: 240px;
+  flex: 0 1 300px;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 9px 12px 9px 36px;
+  border-radius: 12px;
+  border: 1px solid rgba(16, 185, 129, 0.12);
+  outline: none;
+  background: white;
+  font-size: 13px;
+  box-shadow: var(--shadow-sm);
+  font-family: var(--font-sans);
+  transition: border-color 0.2s;
+}
+.searchInput:focus { border-color: var(--color-primary); }
+
+/* ── Grid de sensores ─────────────────────────────────────── */
+.sensorGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 14px;
+}
+
+/* ── Sensor card ──────────────────────────────────────────── */
+.sensorCard {
+  padding: 18px 20px;
+  background: white;
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  border: 1px solid rgba(16, 185, 129, 0.07);
+}
+
+.sensorCardTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.sensorIconRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sensorIconBox {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sensorName {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-dark-green);
+  line-height: 1.2;
+}
+
+.sensorType {
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+
+.sensorValue {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.sensorValueNum {
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--color-dark-green);
+  font-family: var(--font-heading);
+  line-height: 1;
+}
+
+.sensorUnit {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+/* ── Empty / loading ──────────────────────────────────────── */
+.emptyState {
+  padding: 48px 24px;
+  text-align: center;
+  background: white;
+}
+
+.emptyText {
+  color: var(--color-text-muted);
+  font-size: 14px;
+  margin: 0;
+}

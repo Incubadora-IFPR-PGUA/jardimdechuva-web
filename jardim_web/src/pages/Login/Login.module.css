@@ -1,0 +1,470 @@
+/* ============================================================
+   Login.module.css — Página de login do Jardim de Chuva
+   ============================================================ */
+
+/* ── Root / fundo ─────────────────────────────────────────── */
+.root {
+  min-height: 100vh;
+  width: 100vw;
+  background: linear-gradient(135deg, #020d06 0%, #031a0e 30%, #042b15 60%, #053520 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  font-family: var(--font-sans);
+}
+
+/* Grade de circuito de fundo */
+.grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(16, 185, 129, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(16, 185, 129, 0.04) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+}
+
+/* Partícula de chuva */
+.rainParticle {
+  position: absolute;
+  width: 1.5px;
+  border-radius: 2px;
+  background: linear-gradient(to bottom, transparent, rgba(16, 185, 129, 0.6));
+  animation: rain-fall linear infinite;
+}
+
+@keyframes rain-fall {
+  from { transform: translateY(-60px); opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  to   { transform: translateY(110vh); opacity: 0; }
+}
+
+/* Orb flutuante */
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.12) 0%, transparent 70%);
+  animation: float-orb ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes float-orb {
+  from { transform: translateY(0) scale(1); }
+  to   { transform: translateY(-30px) scale(1.1); }
+}
+
+/* ── Layout central ───────────────────────────────────────── */
+.center {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 60px;
+  width: 100%;
+  max-width: 1000px;
+  padding: 24px;
+}
+
+/* ── Coluna de branding (esquerda) ────────────────────────── */
+.brandCol {
+  flex: 1 1 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  color: white;
+}
+
+.brandBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: 100px;
+  padding: 5px 14px;
+  font-size: 12px;
+  color: #6ee7b7;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  width: fit-content;
+}
+
+.logoWrap {
+  width: 120px;
+  height: 120px;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(12px);
+  overflow: hidden;
+  animation: logo-pulse 3s ease-in-out infinite;
+}
+
+@keyframes logo-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.35); }
+  50%       { box-shadow: 0 0 0 14px rgba(16, 185, 129, 0); }
+}
+
+.logoImg {
+  width: 100px;
+  height: 100px;
+  object-fit: contain;
+  animation: leaf-sway 4s ease-in-out infinite;
+}
+
+@keyframes leaf-sway {
+  0%, 100% { transform: rotate(-4deg) scale(1); }
+  50%       { transform: rotate(4deg) scale(1.04); }
+}
+
+.brandTitle {
+  font-size: clamp(32px, 5vw, 48px);
+  font-weight: 800;
+  color: white;
+  line-height: 1.1;
+  font-family: var(--font-heading);
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.brandHighlight {
+  background: linear-gradient(90deg, #10b981, #34d399);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.brandSub {
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.55);
+  line-height: 1.6;
+  max-width: 360px;
+  margin: 0;
+}
+
+.statsRow {
+  display: flex;
+  gap: 28px;
+}
+
+.statItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.statValue {
+  font-size: 22px;
+  font-weight: 700;
+  color: #34d399;
+  font-family: var(--font-heading);
+}
+
+.statLabel {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+  font-weight: 500;
+}
+
+/* ── Card de login (direita) ──────────────────────────────── */
+.cardCol {
+  flex: 0 0 420px;
+  display: flex;
+  justify-content: center;
+}
+
+.card {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 28px;
+  padding: 40px 36px;
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  animation: card-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(32px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.cardHeader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 28px;
+  text-align: center;
+}
+
+.logoMini {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+  overflow: hidden;
+}
+
+.cardTitle {
+  font-size: 22px;
+  font-weight: 700;
+  color: white !important;
+  margin: 0;
+  font-family: var(--font-heading);
+}
+
+.cardSub {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.45);
+  margin: 0;
+}
+
+/* ── Formulário ───────────────────────────────────────────── */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.errorBox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 10px;
+  color: #fca5a5;
+  font-size: 13px;
+  font-weight: 500;
+  animation: slide-up 0.2s ease;
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.labelRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.forgotLink {
+  color: #6b7280;
+  font-size: 13px;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.forgotLink:hover { color: #10b981; }
+
+.inputWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.inputIcon {
+  position: absolute;
+  left: 14px;
+  pointer-events: none;
+  transition: color 0.2s;
+  color: #9ca3af;
+}
+
+.inputIconFocused { color: #10b981; }
+
+.input {
+  width: 100%;
+  padding: 12px 14px 12px 42px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(16, 185, 129, 0.15);
+  border-radius: 12px;
+  color: white;
+  font-size: 14px;
+  font-family: var(--font-sans);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  caret-color: #10b981;
+}
+
+.input::placeholder { color: rgba(255, 255, 255, 0.28); }
+
+.input:focus {
+  outline: none;
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+}
+
+.input:-webkit-autofill,
+.input:-webkit-autofill:hover,
+.input:-webkit-autofill:focus {
+  -webkit-text-fill-color: white;
+  -webkit-box-shadow: 0 0 0 1000px rgba(10, 35, 20, 0.95) inset;
+  caret-color: #10b981;
+}
+
+.inputWithPadding { padding-right: 44px; }
+
+.eyeBtn {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 4px;
+  border-radius: 6px;
+  transition: color 0.2s;
+}
+.eyeBtn:hover { color: #10b981; }
+
+/* ── Remember + Submit ────────────────────────────────────── */
+.rememberRow {
+  display: flex;
+  align-items: center;
+}
+
+.checkLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.checkbox {
+  accent-color: #10b981;
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+
+.submitBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px 24px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  border: none;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.35);
+  font-family: var(--font-sans);
+  margin-top: 4px;
+}
+
+.submitBtn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #059669, #047857);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 30px rgba(5, 150, 105, 0.45);
+}
+
+.submitBtn:active:not(:disabled) { transform: translateY(0); }
+.submitBtn:disabled { opacity: 0.7; cursor: not-allowed; }
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2.5px solid rgba(255, 255, 255, 0.3);
+  border-top: 2.5px solid white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* ── Divider ──────────────────────────────────────────────── */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0 16px;
+}
+
+.dividerLine {
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.dividerText {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.3);
+  white-space: nowrap;
+}
+
+/* ── Botão demo ───────────────────────────────────────────── */
+.demoBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  background: rgba(16, 185, 129, 0.07);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 12px;
+  color: #6ee7b7;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: var(--font-sans);
+}
+
+.demoBtn:hover {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+/* ── Footer do card ───────────────────────────────────────── */
+.cardFooter {
+  text-align: center;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.2);
+  margin-top: 20px;
+}
+
+/* ── Responsivo ───────────────────────────────────────────── */
+@media (max-width: 860px) {
+  .brandCol { display: none; }
+  .cardCol  { flex: 0 0 100%; max-width: 440px; }
+  .center   { justify-content: center; }
+}
+
+@media (max-width: 480px) {
+  .card { padding: 32px 24px; }
+}

@@ -1,0 +1,2 @@
+/* Notificacoes.module.css */
+.page { display: flex; flex-direction: column; gap: 24px; animation: fadeInUp 0.32s ease forwards; }

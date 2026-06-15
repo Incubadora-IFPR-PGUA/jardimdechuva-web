@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   Cpu,
@@ -9,12 +9,21 @@ import {
   Search,
   Menu,
   X,
+  LogOut,
   Droplet
 } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 
 const Layout = ({ children }) => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login", { replace: true });
+  };
 
   const menuItems = [
     { path: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -58,21 +67,31 @@ const Layout = ({ children }) => {
                 width: "42px",
                 height: "42px",
                 borderRadius: "12px",
-                background: "linear-gradient(135deg, #10b981, #059669)",
+                background: "#f0fdf4",
+                border: "1px solid rgba(16,185,129,0.2)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "white"
+                overflow: "hidden",
+                flexShrink: 0,
               }}
             >
-              <Droplet size={24} />
+              <img
+                src="/logo-jardim.png"
+                alt="Jardim de Chuva"
+                style={{ width: "36px", height: "36px", objectFit: "contain" }}
+                onError={(e) => { e.target.style.display="none"; e.target.parentElement.querySelector(".logo-fallback").style.display="flex"; }}
+              />
+              <div className="logo-fallback" style={{ display: "none", alignItems: "center", justifyContent: "center" }}>
+                <Droplet size={22} style={{ color: "#10b981" }} />
+              </div>
             </div>
             <div>
-              <h2 className="logo-title" style={{ fontSize: "16px", margin: 0, fontWeight: "700", color: "#064e3b" }}>
+              <h2 className="logo-title" style={{ fontSize: "15px", margin: 0, fontWeight: "700", color: "#064e3b" }}>
                 Jardim de Chuva
               </h2>
-              <p className="logo-subtitle" style={{ fontSize: "11px", color: "#6b7280", margin: 0 }}>
-                IoT Inteligente
+              <p className="logo-subtitle" style={{ fontSize: "10px", color: "#6b7280", margin: 0, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: "600" }}>
+                Inteligente
               </p>
             </div>
           </div>
@@ -124,8 +143,9 @@ const Layout = ({ children }) => {
           </nav>
         </div>
 
-        {/* Sidebar Footer - System Status Indicator */}
-        <div style={{ padding: "0 8px", width: "100%" }}>
+        {/* Sidebar Footer */}
+        <div style={{ padding: "0 8px", width: "100%", display: "flex", flexDirection: "column", gap: "8px" }}>
+          {/* Status */}
           <div
             style={{
               display: "flex",
@@ -145,13 +165,40 @@ const Layout = ({ children }) => {
                 borderRadius: "50%",
                 background: "#10b981",
                 display: "inline-block",
-                boxShadow: "0 0 8px #10b981"
+                boxShadow: "0 0 8px #10b981",
+                flexShrink: 0,
               }}
             />
-            <span className="sidebar-footer-text" style={{ fontSize: "12px", fontWeight: "600" }}>
+            <span className="sidebar-footer-text" style={{ fontSize: "12px", fontWeight: "600", flex: 1 }}>
               Sistema online
             </span>
           </div>
+
+          {/* Logout */}
+          <button
+            onClick={handleLogout}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              padding: "10px 14px",
+              borderRadius: "12px",
+              background: "transparent",
+              border: "1px solid rgba(239,68,68,0.12)",
+              color: "#dc2626",
+              cursor: "pointer",
+              width: "100%",
+              fontSize: "13px",
+              fontWeight: "600",
+              fontFamily: "'Inter', sans-serif",
+              transition: "all 0.2s ease",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background="rgba(239,68,68,0.06)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background="transparent"; }}
+          >
+            <LogOut size={16} style={{ color: "#dc2626", flexShrink: 0 }} />
+            <span className="sidebar-footer-text">{user?.nome?.split(" ")[0] ?? "Sair"}</span>
+          </button>
         </div>
       </aside>
 

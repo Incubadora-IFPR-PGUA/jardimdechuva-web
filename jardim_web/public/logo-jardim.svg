@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="500" height="500">
+  <!-- Fundo branco -->
+  <rect width="500" height="500" fill="white"/>
+  
+  <!-- Tronco principal (circuito) -->
+  <line x1="250" y1="380" x2="250" y2="220" stroke="#1a5c2a" stroke-width="8" stroke-linecap="round"/>
+  
+  <!-- Ramos esquerda -->
+  <line x1="250" y1="300" x2="180" y2="260" stroke="#1a5c2a" stroke-width="7" stroke-linecap="round"/>
+  <line x1="180" y1="260" x2="180" y2="220" stroke="#1a5c2a" stroke-width="7" stroke-linecap="round"/>
+  
+  <line x1="250" y1="260" x2="155" y2="220" stroke="#1a5c2a" stroke-width="6" stroke-linecap="round"/>
+  <line x1="155" y1="220" x2="120" y2="220" stroke="#1a5c2a" stroke-width="6" stroke-linecap="round"/>
+  
+  <!-- Ramos direita -->
+  <line x1="250" y1="300" x2="320" y2="260" stroke="#1a5c2a" stroke-width="7" stroke-linecap="round"/>
+  <line x1="320" y1="260" x2="320" y2="220" stroke="#1a5c2a" stroke-width="7" stroke-linecap="round"/>
+  
+  <line x1="250" y1="260" x2="345" y2="220" stroke="#1a5c2a" stroke-width="6" stroke-linecap="round"/>
+  <line x1="345" y1="220" x2="380" y2="220" stroke="#1a5c2a" stroke-width="6" stroke-linecap="round"/>
+  
+  <!-- Nós de circuito (círculos) -->
+  <circle cx="180" cy="260" r="7" fill="none" stroke="#1a5c2a" stroke-width="5"/>
+  <circle cx="155" cy="220" r="7" fill="none" stroke="#1a5c2a" stroke-width="5"/>
+  <circle cx="320" cy="260" r="7" fill="none" stroke="#1a5c2a" stroke-width="5"/>
+  <circle cx="345" cy="220" r="7" fill="none" stroke="#1a5c2a" stroke-width="5"/>
+  <circle cx="250" cy="300" r="7" fill="none" stroke="#1a5c2a" stroke-width="5"/>
+  
+  <!-- Folhas - estilo do logo -->
+  <!-- Folha central topo -->
+  <path d="M250 215 C235 195 235 165 250 150 C265 165 265 195 250 215Z" fill="#5cb85c"/>
+  <!-- Folha esquerda alta -->
+  <path d="M180 215 C165 195 165 168 180 155 C195 168 195 195 180 215Z" fill="#5cb85c"/>
+  <!-- Folha dir alta -->
+  <path d="M320 215 C305 195 305 168 320 155 C335 168 335 195 320 215Z" fill="#5cb85c"/>
+  <!-- Folha extrema esquerda -->
+  <path d="M120 215 C105 195 105 170 120 157 C135 170 135 195 120 215Z" fill="#5cb85c"/>
+  <!-- Folha extrema direita -->
+  <path d="M380 215 C365 195 365 170 380 157 C395 170 395 195 380 215Z" fill="#5cb85c"/>
+  <!-- Folha lateral esquerda média -->
+  <path d="M115 255 C95 242 90 217 105 205 C118 218 118 243 115 255Z" fill="#5cb85c" transform="rotate(-15, 105, 230)"/>
+  <!-- Folha lateral direita média -->
+  <path d="M385 255 C365 242 360 217 375 205 C388 218 388 243 385 255Z" fill="#5cb85c" transform="rotate(15, 375, 230)"/>
+  
+  <!-- Texto "Jardim de Chuva" -->
+  <text x="250" y="430" 
+    font-family="Arial, Helvetica, sans-serif" 
+    font-size="38" 
+    font-weight="bold" 
+    fill="#1a5c2a" 
+    text-anchor="middle">Jardim de Chuva</text>
+  
+  <!-- Texto "INTELIGENTE" -->
+  <text x="250" y="465" 
+    font-family="Arial, Helvetica, sans-serif" 
+    font-size="20" 
+    font-weight="600" 
+    fill="#1a5c2a" 
+    text-anchor="middle" 
+    letter-spacing="6">INTELIGENTE</text>
+</svg>

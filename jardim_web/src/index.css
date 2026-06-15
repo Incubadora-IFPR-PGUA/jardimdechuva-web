@@ -383,3 +383,30 @@ input:checked + .slider::before { transform: translateX(20px); }
     padding: 16px;
   }
 }
+
+/* ============================================================
+   LOGIN PAGE — Input dark theme placeholders & spin keyframe
+   ============================================================ */
+.login-input::placeholder {
+  color: rgba(255, 255, 255, 0.28);
+}
+.login-input:-webkit-autofill,
+.login-input:-webkit-autofill:hover,
+.login-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: white;
+  -webkit-box-shadow: 0 0 0 1000px rgba(10, 35, 20, 0.95) inset;
+  caret-color: #10b981;
+}
+
+/* Spin keyframe (usado no spinner do botão de login) */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Login page — responsivo */
+@media (max-width: 860px) {
+  .login-brand-col { display: none !important; }
+  .login-card-col  { flex: 0 0 100% !important; max-width: 440px; }
+}
+
