@@ -31,7 +31,9 @@ export const AuthProvider = ({ children }) => {
       return { success: true };
     } catch (err) {
       // Fallback para demo quando API não está disponível
-      if (!err.response || err.code === "ERR_NETWORK" || err.code === "ECONNREFUSED") {
+      if (!err.response ||
+          err.code === "ERR_NETWORK" ||
+          err.code === "ECONNREFUSED") {
         const demoUser = { id: 1, nome: "Administrador", email, role: "admin" };
         const demoToken = "demo-token-jardim-chuva";
         setUser(demoUser);
