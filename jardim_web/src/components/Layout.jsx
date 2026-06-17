@@ -13,16 +13,26 @@ import {
   Droplet
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 const Layout = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   const handleLogout = () => {
     logout();
     navigate("/login", { replace: true });
+  };
+
+  const handleToggleSidebar = () => {
+    if (window.innerWidth <= 768) {
+      setIsSidebarOpen((prev) => !prev);
+    } else {
+      setIsSidebarCollapsed((prev) => !prev);
+    }
   };
 
   const menuItems = [
@@ -53,65 +63,93 @@ const Layout = ({ children }) => {
 
       {/* Sidebar Container */}
       <aside
-        className="sidebar-container"
+        className={`sidebar-container ${isSidebarCollapsed ? "sidebar-collapsed" : ""} ${isSidebarOpen ? "mobile-open" : ""}`}
         style={{
-          transform: isSidebarOpen ? "translateX(0)" : "",
-          left: isSidebarOpen ? 0 : ""
+          width: isSidebarCollapsed && window.innerWidth > 768 ? "80px" : undefined,
+          padding: isSidebarCollapsed && window.innerWidth > 768 ? "24px 12px" : undefined,
+          transition: "all 0.3s ease"
         }}
       >
         <div style={{ display: "flex", flexDirection: "column", gap: "32px", width: "100%" }}>
           {/* Sidebar Header / Logo */}
-          <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "0 8px" }}>
-            <div
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "0 8px", minHeight: "42px", justifyContent: isSidebarCollapsed ? "center" : "flex-start" }}>
+            <button
+              type="button"
+              onClick={handleToggleSidebar}
               style={{
-                width: "42px",
-                height: "42px",
-                borderRadius: "12px",
-                background: "#f0fdf4",
-                border: "1px solid rgba(16,185,129,0.2)",
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                overflow: "hidden",
-                flexShrink: 0,
+                color: "#4b5563",
+                padding: "4px",
+                borderRadius: "8px",
               }}
+              className="hover-scale"
             >
-              <img
-                src="/logo-jardim.png"
-                alt="Jardim de Chuva"
-                style={{ width: "36px", height: "36px", objectFit: "contain" }}
-                onError={(e) => { e.target.style.display="none"; e.target.parentElement.querySelector(".logo-fallback").style.display="flex"; }}
-              />
-              <div className="logo-fallback" style={{ display: "none", alignItems: "center", justifyContent: "center" }}>
-                <Droplet size={22} style={{ color: "#10b981" }} />
+              <Menu size={22} />
+            </button>
+
+            {!isSidebarCollapsed && (
+              <div
+                style={{
+                  width: "42px",
+                  height: "42px",
+                  borderRadius: "12px",
+                  background: "#f0fdf4",
+                  border: "1px solid rgba(16,185,129,0.2)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  overflow: "hidden",
+                  flexShrink: 0,
+                }}
+              >
+                <img
+                  src="/logo-jardim.png"
+                  alt="Jardim de Chuva"
+                  style={{ width: "36px", height: "36px", objectFit: "contain" }}
+                  onError={(e) => { e.target.style.display = "none"; e.target.parentElement.querySelector(".logo-fallback").style.display = "flex"; }}
+                />
+                <div className="logo-fallback" style={{ display: "none", alignItems: "center", justifyContent: "center" }}>
+                  <Droplet size={22} style={{ color: "#10b981" }} />
+                </div>
               </div>
-            </div>
-            <div>
-              <h2 className="logo-title" style={{ fontSize: "15px", margin: 0, fontWeight: "700", color: "#064e3b" }}>
-                Jardim de Chuva
-              </h2>
-              <p className="logo-subtitle" style={{ fontSize: "10px", color: "#6b7280", margin: 0, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: "600" }}>
-                Inteligente
-              </p>
-            </div>
+            )}
+
+            {/* Textos do Logo escondidos se collapsed */}
+            {!isSidebarCollapsed && (
+              <div>
+                <h2 className="logo-title" style={{ fontSize: "15px", margin: 0, fontWeight: "700", color: "#064e3b" }}>
+                  Jardim de Chuva
+                </h2>
+                <p className="logo-subtitle" style={{ fontSize: "10px", color: "#6b7280", margin: 0, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: "600" }}>
+                  Inteligente
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Navigation Links */}
           <nav style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            <p
-              className="sidebar-label"
-              style={{
-                fontSize: "11px",
-                fontWeight: "600",
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                color: "#9ca3af",
-                paddingLeft: "8px",
-                marginBottom: "4px"
-              }}
-            >
-              Operação
-            </p>
+            {!isSidebarCollapsed && (
+              <p
+                className="sidebar-label"
+                style={{
+                  fontSize: "11px",
+                  fontWeight: "600",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                  color: "#9ca3af",
+                  paddingLeft: "8px",
+                  marginBottom: "4px"
+                }}
+              >
+                Operação
+              </p>
+            )}
             {menuItems.map((item) => {
               const Icon = item.icon;
               const isActive = currentPath === item.path;
@@ -123,8 +161,9 @@ const Layout = ({ children }) => {
                   style={{
                     display: "flex",
                     alignItems: "center",
+                    justifyContent: isSidebarCollapsed ? "center" : "flex-start",
                     gap: "12px",
-                    padding: "12px 16px",
+                    padding: isSidebarCollapsed ? "12px" : "12px 16px",
                     borderRadius: "12px",
                     textDecoration: "none",
                     color: isActive ? "#047857" : "#4b5563",
@@ -133,10 +172,10 @@ const Layout = ({ children }) => {
                     fontSize: "14px",
                     transition: "all 0.2s ease"
                   }}
-                  className="hover-scale"
+                  className="hover-scale sidebar-link"
                 >
-                  <Icon size={18} style={{ color: isActive ? "#059669" : "#6b7280" }} />
-                  <span className="sidebar-label">{item.label}</span>
+                  <Icon size={18} style={{ color: isActive ? "#059669" : "#6b7280", flexShrink: 0 }} />
+                  {!isSidebarCollapsed && <span className="sidebar-label">{item.label}</span>}
                 </Link>
               );
             })}
@@ -169,9 +208,11 @@ const Layout = ({ children }) => {
                 flexShrink: 0,
               }}
             />
-            <span className="sidebar-footer-text" style={{ fontSize: "12px", fontWeight: "600", flex: 1 }}>
-              Sistema online
-            </span>
+            {!isSidebarCollapsed && (
+              <span className="sidebar-footer-text" style={{ fontSize: "12px", fontWeight: "600", flex: 1 }}>
+                Sistema online
+              </span>
+            )}
           </div>
 
           {/* Logout */}
@@ -193,17 +234,19 @@ const Layout = ({ children }) => {
               fontFamily: "'Inter', sans-serif",
               transition: "all 0.2s ease",
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.background="rgba(239,68,68,0.06)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background="transparent"; }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(239,68,68,0.06)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
           >
             <LogOut size={16} style={{ color: "#dc2626", flexShrink: 0 }} />
-            <span className="sidebar-footer-text">{user?.nome?.split(" ")[0] ?? "Sair"}</span>
+            {!isSidebarCollapsed && (
+              <span className="sidebar-footer-text">{user?.nome?.split(" ")[0] ?? "Sair"}</span>
+            )}
           </button>
         </div>
       </aside>
 
       {/* Main Content Pane */}
-      <div className="main-content">
+      <div className={`main-content ${isSidebarCollapsed ? "sidebar-collapsed-content" : ""}`}>
         {/* Top Navbar */}
         <header
           style={{
@@ -216,24 +259,8 @@ const Layout = ({ children }) => {
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "12px", flex: 1 }}>
-            {/* Mobile menu toggle */}
-            <button
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              style={{
-                background: "white",
-                border: "1px solid rgba(16, 185, 129, 0.1)",
-                borderRadius: "10px",
-                padding: "8px",
-                cursor: "pointer",
-                display: "none",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: "var(--shadow-sm)"
-              }}
-              className="mobile-toggle-btn"
-            >
-              {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
-            </button>
+            {/* Hamburger menu toggle (Mobile only) */}
+
 
             {/* Search Input */}
             <div style={{ position: "relative", width: "100%", maxWidth: "400px" }}>
@@ -329,15 +356,7 @@ const Layout = ({ children }) => {
 
       {/* Extra styles for media queries inside Layout */}
       <style>{`
-        @media (max-width: 1024px) {
-          .mobile-toggle-btn {
-            display: flex !important;
-          }
-        }
-        @media (max-width: 640px) {
-          .mobile-toggle-btn {
-            display: flex !important;
-          }
+        @media (max-width: 768px) {
           header {
             padding: 8px 0;
           }

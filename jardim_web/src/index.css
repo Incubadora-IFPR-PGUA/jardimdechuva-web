@@ -60,8 +60,7 @@ body {
 #root {
   display: flex;
   min-height: 100vh;
-  width: 100vw;
-  overflow-x: hidden;
+  width: 100%;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -92,13 +91,30 @@ input, select, textarea { font-family: var(--font-sans); }
   justify-content: space-between;
   padding: 24px 16px;
   position: fixed;
+  top: 0;
+  left: 0;
   height: 100vh;
   z-index: 100;
-  transition: width 0.25s ease, padding 0.25s ease;
+  transition: width 0.3s ease, transform 0.3s ease, padding 0.3s ease;
+}
+
+.sidebar-container.sidebar-collapsed {
+  width: 80px !important;
+  padding: 24px 12px !important;
+}
+.sidebar-container.sidebar-collapsed .sidebar-label,
+.sidebar-container.sidebar-collapsed .logo-subtitle,
+.sidebar-container.sidebar-collapsed .logo-title,
+.sidebar-container.sidebar-collapsed .sidebar-footer-text {
+  display: none !important;
+}
+.sidebar-container.sidebar-collapsed .sidebar-link {
+  justify-content: center !important;
+  padding: 12px !important;
 }
 
 .main-content {
-  flex: 1;
+  width: calc(100% - 240px);
   margin-left: 240px;
   padding: 24px 36px;
   display: flex;
@@ -106,7 +122,12 @@ input, select, textarea { font-family: var(--font-sans); }
   gap: 24px;
   min-height: 100vh;
   background-color: var(--bg-app);
-  transition: margin-left 0.25s ease;
+  transition: margin-left 0.3s ease, width 0.3s ease, padding 0.3s ease;
+}
+
+.main-content.sidebar-collapsed-content {
+  width: calc(100% - 80px) !important;
+  margin-left: 80px !important;
 }
 
 /* ============================================================
@@ -343,6 +364,10 @@ input:checked + .slider::before { transform: translateX(20px); }
   box-shadow: var(--shadow-lg) !important;
 }
 
+.mobile-header-btn {
+  display: none !important;
+}
+
 /* ============================================================
    RESPONSIVE
    ============================================================ */
@@ -351,36 +376,56 @@ input:checked + .slider::before { transform: translateX(20px); }
 }
 
 @media (max-width: 1024px) {
-  .sidebar-container {
-    width: 72px;
-    padding: 20px 8px;
-  }
+  /* Em tablets, a barra se ajusta, mas não forçamos minimização sem a classe */
   .main-content {
-    margin-left: 72px;
     padding: 20px;
   }
-  .sidebar-label,
-  .sidebar-footer-text,
-  .logo-subtitle {
-    display: none;
-  }
-  .logo-title { font-size: 0; }
-  .mobile-toggle-btn { display: flex !important; }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .app-layout { flex-direction: column; }
+  
   .sidebar-container {
-    width: 100%;
-    height: auto;
-    position: relative;
-    padding: 12px 16px;
-    border-right: none;
-    border-bottom: 1px solid var(--border-soft);
+    width: 260px;
+    height: 100vh;
+    padding: 24px 16px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    transform: translateX(-100%); /* Escondido fora da tela */
+    border-right: 1px solid var(--border-soft);
+    border-bottom: none;
+    z-index: 105;
   }
+  
+  .sidebar-container.mobile-open {
+    transform: translateX(0); /* Mostra a sidebar */
+  }
+
+  /* Restaura as labels na sidebar móvel aberta */
+  .sidebar-container.mobile-open .sidebar-label,
+  .sidebar-container.mobile-open .logo-subtitle,
+  .sidebar-container.mobile-open .logo-title,
+  .sidebar-container.mobile-open .sidebar-footer-text {
+    display: block;
+  }
+  .sidebar-container.mobile-open .sidebar-link {
+    justify-content: flex-start;
+    padding: 12px 16px !important;
+  }
+
+  .mobile-header-btn {
+    display: flex !important;
+  }
+
   .main-content {
-    margin-left: 0;
+    margin-left: 0 !important;
     padding: 16px;
+    width: 100%;
+  }
+
+  .main-content.sidebar-collapsed-content {
+    margin-left: 0 !important;
   }
 }
 
