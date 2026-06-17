@@ -6,6 +6,7 @@ import {
   Sliders,
   History,
   Bell,
+  Trees,
   Search,
   Menu,
   X,
@@ -27,6 +28,7 @@ const Layout = ({ children }) => {
 
   const menuItems = [
     { path: "/", label: "Dashboard", icon: LayoutDashboard },
+    { path: "/jardins", label: "Jardins", icon: Trees }, 
     { path: "/sensores", label: "Sensores", icon: Cpu },
     { path: "/atuadores", label: "Atuadores", icon: Sliders },
     { path: "/historico", label: "Histórico", icon: History },
