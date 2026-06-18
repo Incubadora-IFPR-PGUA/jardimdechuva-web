@@ -245,8 +245,11 @@ const Layout = ({ children }) => {
         </div>
       </aside>
 
+      {/* Spacer to push main content layout dynamically */}
+      <div className={`sidebar-spacer ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`} />
+
       {/* Main Content Pane */}
-      <div className={`main-content ${isSidebarCollapsed ? "sidebar-collapsed-content" : ""}`}>
+      <div className="main-content">
         {/* Top Navbar */}
         <header
           style={{
