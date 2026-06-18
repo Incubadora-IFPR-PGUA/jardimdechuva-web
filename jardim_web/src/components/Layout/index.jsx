@@ -18,6 +18,7 @@ const Layout = ({ children }) => {
     { path: "/sensores",     label: "Sensores",     icon: Cpu },
     { path: "/atuadores",    label: "Atuadores",    icon: Sliders },
     { path: "/historico",    label: "Histórico",    icon: History },
+    { path: "/jardins", label: "Jardins", icon: Bell },
     { path: "/notificacoes", label: "Notificações", icon: Bell },
   ];
 
