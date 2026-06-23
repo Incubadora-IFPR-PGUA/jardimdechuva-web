@@ -13,6 +13,7 @@ import Atuadores    from "../pages/Atuadores";
 import Historico    from "../pages/Historico";
 import Notificacoes from "../pages/Notificacoes";
 import Jardins from "../pages/JardinsPage";
+import Usuarios from "../pages/Usuarios/UsuariosPage";
 
 const AppRoutes = () => (
   <BrowserRouter>
@@ -34,6 +35,7 @@ const AppRoutes = () => (
                   <Route path="/historico"    element={<Historico />} />
                   <Route path="/notificacoes" element={<Notificacoes />} />
                   <Route path="/jardins" element={<Jardins />} />
+                  <Route path="/usuarios" element={<Usuarios />} />
                   <Route path="*"             element={<Navigate to="/" replace />} />
                 </Routes>
               </Layout>

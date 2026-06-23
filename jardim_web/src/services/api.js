@@ -101,4 +101,13 @@ export const jardimService = {
 export const tipoSensorService = { listar: () => api.get("/tipos-sensores") };
 export const tipoDispositivoService = { listar: () => api.get("/tipos-dispositivos") };
 
+// ── Usuários ──────────────────────────────────────────────────
+export const usuarioService = {
+  listar: () => api.get("/usuarios"),
+  buscar: (id) => api.get(`/usuarios/${id}`),
+  criar: (data) => api.post("/usuarios", data),
+  atualizar: (id, d) => api.put(`/usuarios/${id}`, d),
+  deletar: (id) => api.delete(`/usuarios/${id}`),
+};
+
 export default api;

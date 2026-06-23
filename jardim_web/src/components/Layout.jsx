@@ -11,7 +11,8 @@ import {
   Menu,
   X,
   LogOut,
-  Droplet
+  Droplet,
+  Users
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -43,6 +44,10 @@ const Layout = ({ children }) => {
     { path: "/atuadores", label: "Atuadores", icon: Sliders },
     { path: "/historico", label: "Histórico", icon: History },
     { path: "/notificacoes", label: "Notificações", icon: Bell }
+  ];
+
+  const adminItems = [
+    { path: "/usuarios", label: "Usuários", icon: Users }
   ];
 
   const currentPath = location.pathname;
@@ -153,6 +158,53 @@ const Layout = ({ children }) => {
               </p>
             )}
             {menuItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = currentPath === item.path;
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  onClick={() => setIsSidebarOpen(false)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: isSidebarCollapsed ? "center" : "flex-start",
+                    gap: "12px",
+                    padding: isSidebarCollapsed ? "12px" : "12px 16px",
+                    borderRadius: "12px",
+                    textDecoration: "none",
+                    color: isActive ? "#047857" : "#4b5563",
+                    backgroundColor: isActive ? "#d1fae5" : "transparent",
+                    fontWeight: isActive ? "600" : "500",
+                    fontSize: "14px",
+                    transition: "all 0.2s ease"
+                  }}
+                  className="hover-scale sidebar-link"
+                >
+                  <Icon size={18} style={{ color: isActive ? "#059669" : "#6b7280", flexShrink: 0 }} />
+                  {!isSidebarCollapsed && <span className="sidebar-label">{item.label}</span>}
+                </Link>
+              );
+            })}
+
+            {!isSidebarCollapsed && (
+              <p
+                className="sidebar-label"
+                style={{
+                  fontSize: "11px",
+                  fontWeight: "600",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                  color: "#9ca3af",
+                  paddingLeft: "8px",
+                  marginTop: "16px",
+                  marginBottom: "4px"
+                }}
+              >
+                Administração
+              </p>
+            )}
+            {adminItems.map((item) => {
               const Icon = item.icon;
               const isActive = currentPath === item.path;
               return (
