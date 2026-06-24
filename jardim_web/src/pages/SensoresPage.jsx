@@ -2,9 +2,9 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Droplet, CloudRain, Waves, Sun, Thermometer, Wind,
   FlaskConical, Gauge, Droplets, ScanLine, Cpu,
-  RefreshCw, Search, Plus, Send, X
+  RefreshCw, Search, Plus, Send, X, Pencil, Trash2
 } from "lucide-react";
-import { sensorService, api } from "../services/api";
+import { sensorService } from "../services/api";
 import { toast } from "react-toastify";
 
 // ─── Icon + config por tipo de sensor ────────────────────────────────────────
@@ -43,7 +43,6 @@ const statusBadge = (estadoAtual) => {
   return { cls: BADGE_MAP[e] || "badge-success", label: e.charAt(0).toUpperCase() + e.slice(1) };
 };
 
-// Filtro por categoria
 const FILTERS = [
   { key:"todos", label:"Todos" },
   { key:"solo",  label:"Solo" },
@@ -52,28 +51,29 @@ const FILTERS = [
   { key:"acesso",label:"Acesso" },
 ];
 
+const FORM_EMPTY = { nome:"", idDispositivo:"1", idTipoSensor:"1", mqttTopicoLeitura:"", localizacao:"" };
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const SensoresPage = () => {
-  const [sensores, setSensores]     = useState([]);
-  const [loading, setLoading]       = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [search, setSearch]         = useState("");
+  const [sensores, setSensores]         = useState([]);
+  const [loading, setLoading]           = useState(true);
+  const [refreshing, setRefreshing]     = useState(false);
+  const [search, setSearch]             = useState("");
   const [activeFilter, setActiveFilter] = useState("todos");
-  const [showForm, setShowForm]     = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [showForm, setShowForm]         = useState(false);
+  const [submitting, setSubmitting]     = useState(false);
+  const [editando, setEditando]         = useState(null);
+  const [deletando, setDeletando]       = useState(null);
+  const [form, setForm]                 = useState(FORM_EMPTY);
 
-  // Form
-  const [form, setForm] = useState({
-    nome:"", idDispositivo:"1", idTipoSensor:"1",
-    mqttTopicoLeitura:"", localizacao:""
-  });
+  // ── Fetch ──────────────────────────────────────────────────────────────────
 
   const fetchSensores = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     else setRefreshing(true);
     try {
-      const res  = await sensorService.listar();
+      const res = await sensorService.listar();
       setSensores(res.data || []);
     } catch (err) {
       console.error(err);
@@ -90,7 +90,8 @@ const SensoresPage = () => {
     return () => clearInterval(iv);
   }, [fetchSensores]);
 
-  // Filtered + searched list
+  // ── Filtro/busca ───────────────────────────────────────────────────────────
+
   const displayed = useMemo(() => {
     let list = sensores;
     if (activeFilter !== "todos") {
@@ -107,9 +108,28 @@ const SensoresPage = () => {
     return list;
   }, [sensores, activeFilter, search]);
 
-  const ativos = sensores.length;
+  // ── Abrir form de edição ───────────────────────────────────────────────────
 
-  // Submit
+  const abrirEdicao = (sensor) => {
+    setEditando(sensor);
+    setForm({
+      nome: sensor.nome || "",
+      idDispositivo: sensor.idDispositivo || sensor.id_dispositivo || "1",
+      idTipoSensor: sensor.idTipoSensor || sensor.id_tipo_sensor || "1",
+      mqttTopicoLeitura: sensor.mqttTopicoLeitura || sensor.mqtt_topico_leitura || "",
+      localizacao: sensor.localizacao || "",
+    });
+    setShowForm(true);
+  };
+
+  const fecharForm = () => {
+    setShowForm(false);
+    setEditando(null);
+    setForm(FORM_EMPTY);
+  };
+
+  // ── Submit (criar ou editar) ───────────────────────────────────────────────
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.nome || !form.mqttTopicoLeitura) {
@@ -118,23 +138,46 @@ const SensoresPage = () => {
     }
     setSubmitting(true);
     try {
-      await api.post("/sensores", {
-        ...form,
-        idDispositivo: Number(form.idDispositivo),
-        idTipoSensor:  Number(form.idTipoSensor),
-      });
-      toast.success(`Sensor "${form.nome}" cadastrado!`);
-      setForm({ nome:"", idDispositivo:"1", idTipoSensor:"1", mqttTopicoLeitura:"", localizacao:"" });
-      setShowForm(false);
+      if (editando) {
+        await sensorService.atualizar(editando.idSensor || editando.id_sensor, {
+          nome: form.nome,
+          mqttTopicoLeitura: form.mqttTopicoLeitura,
+          localizacao: form.localizacao,
+        });
+        toast.success(`Sensor "${form.nome}" atualizado!`);
+      } else {
+        await sensorService.criar({
+          ...form,
+          idDispositivo: Number(form.idDispositivo),
+          idTipoSensor:  Number(form.idTipoSensor),
+        });
+        toast.success(`Sensor "${form.nome}" cadastrado!`);
+      }
+      fecharForm();
       fetchSensores(true);
     } catch {
-      toast.error("Erro ao cadastrar sensor. Verifique os dados e tente novamente.");
+      toast.error(editando ? "Erro ao atualizar sensor." : "Erro ao cadastrar sensor.");
     } finally {
       setSubmitting(false);
     }
   };
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  // ── Deletar ────────────────────────────────────────────────────────────────
+
+  const confirmarDelete = async () => {
+    if (!deletando) return;
+    try {
+      await sensorService.deletar(deletando.idSensor || deletando.id_sensor);
+      toast.success(`Sensor "${deletando.nome}" removido.`);
+      setDeletando(null);
+      fetchSensores(true);
+    } catch {
+      toast.error("Erro ao remover sensor.");
+    }
+  };
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:22 }} className="animate-fade-up">
 
@@ -143,7 +186,7 @@ const SensoresPage = () => {
                     flexWrap:"wrap", gap:12 }}>
         <div>
           <span className="badge badge-success" style={{ marginBottom:8 }}>
-            {ativos} sensores ativos
+            {sensores.length} sensor{sensores.length !== 1 ? "es" : ""} ativo{sensores.length !== 1 ? "s" : ""}
           </span>
           <h1 style={{ fontSize:26, fontWeight:800, margin:0 }}>Sensores ambientais</h1>
           <p style={{ fontSize:13, color:"#6b7280", marginTop:4 }}>
@@ -160,7 +203,7 @@ const SensoresPage = () => {
             <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
             Atualizar agora
           </button>
-          <button onClick={() => setShowForm((v) => !v)} className="hover-scale"
+          <button onClick={showForm ? fecharForm : () => setShowForm(true)} className="hover-scale"
             style={{ background:"linear-gradient(135deg,#10b981,#059669)", border:"none",
                      borderRadius:10, padding:"9px 18px", fontSize:13, fontWeight:600,
                      color:"white", display:"flex", alignItems:"center", gap:7,
@@ -175,47 +218,54 @@ const SensoresPage = () => {
       {showForm && (
         <div className="glass-panel" style={{ padding:24, background:"white",
                                               border:"1px solid rgba(16,185,129,0.12)" }}>
-          <h2 style={{ fontSize:16, marginBottom:16 }}>Cadastrar Novo Sensor</h2>
+          <h2 style={{ fontSize:16, marginBottom:16 }}>
+            {editando ? `Editar sensor: ${editando.nome}` : "Cadastrar Novo Sensor"}
+          </h2>
           <form onSubmit={handleSubmit}
             style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))", gap:14 }}>
+
             {[
-              { key:"nome",              label:"Nome do Sensor *",         placeholder:"Ex: Sensor de Chuva Setor A", type:"text" },
-              { key:"mqttTopicoLeitura", label:"Tópico MQTT de Leitura *", placeholder:"Ex: sensor/chuva",           type:"text" },
-              { key:"localizacao",       label:"Localização / Canteiro",   placeholder:"Ex: Canteiro A",              type:"text" },
+              { key:"nome",              label:"Nome do Sensor *",         placeholder:"Ex: Sensor de Chuva Setor A", type:"text"   },
+              { key:"mqttTopicoLeitura", label:"Tópico MQTT de Leitura *", placeholder:"Ex: sensor/chuva",           type:"text"   },
+              { key:"localizacao",       label:"Localização / Canteiro",   placeholder:"Ex: Canteiro A",              type:"text"   },
               { key:"idDispositivo",     label:"ID do Dispositivo",        placeholder:"1",                           type:"number" },
             ].map(({ key, label, placeholder, type }) => (
               <div key={key} style={{ display:"flex", flexDirection:"column", gap:5 }}>
                 <label style={{ fontSize:12, fontWeight:600, color:"#4b5563" }}>{label}</label>
                 <input type={type} value={form[key]} placeholder={placeholder}
                   onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+                  disabled={editando && (key === "idDispositivo")}
                   required={key === "nome" || key === "mqttTopicoLeitura"}
                   style={{ padding:"9px 12px", borderRadius:8,
                            border:"1px solid rgba(16,185,129,0.2)", outline:"none",
-                           fontSize:13, background:"white" }} />
+                           fontSize:13, background: editando && key === "idDispositivo" ? "#f9fafb" : "white" }} />
               </div>
             ))}
 
-            <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-              <label style={{ fontSize:12, fontWeight:600, color:"#4b5563" }}>Tipo de Sensor</label>
-              <select value={form.idTipoSensor}
-                onChange={(e) => setForm((f) => ({ ...f, idTipoSensor: e.target.value }))}
-                style={{ padding:"9px 12px", borderRadius:8,
-                         border:"1px solid rgba(16,185,129,0.2)", outline:"none",
-                         background:"white", fontSize:13 }}>
-                <option value="1">Chuva (Pluviômetro)</option>
-                <option value="2">Clima (DHT22 / BME280)</option>
-                <option value="3">Umidade do Solo</option>
-                <option value="4">Nível de Água (Ultrassônico)</option>
-                <option value="5">Luminosidade (BH1750)</option>
-                <option value="6">pH do Solo</option>
-                <option value="7">Vazão de Água</option>
-                <option value="8">Qualidade da Água</option>
-                <option value="9">Presença / Acesso</option>
-              </select>
-            </div>
+            {/* Tipo de Sensor — oculto na edição */}
+            {!editando && (
+              <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                <label style={{ fontSize:12, fontWeight:600, color:"#4b5563" }}>Tipo de Sensor</label>
+                <select value={form.idTipoSensor}
+                  onChange={(e) => setForm((f) => ({ ...f, idTipoSensor: e.target.value }))}
+                  style={{ padding:"9px 12px", borderRadius:8,
+                           border:"1px solid rgba(16,185,129,0.2)", outline:"none",
+                           background:"white", fontSize:13 }}>
+                  <option value="1">Chuva (Pluviômetro)</option>
+                  <option value="2">Clima (DHT22 / BME280)</option>
+                  <option value="3">Umidade do Solo</option>
+                  <option value="4">Nível de Água (Ultrassônico)</option>
+                  <option value="5">Luminosidade (BH1750)</option>
+                  <option value="6">pH do Solo</option>
+                  <option value="7">Vazão de Água</option>
+                  <option value="8">Qualidade da Água</option>
+                  <option value="9">Presença / Acesso</option>
+                </select>
+              </div>
+            )}
 
             <div style={{ gridColumn:"1/-1", display:"flex", justifyContent:"flex-end", gap:10 }}>
-              <button type="button" onClick={() => setShowForm(false)}
+              <button type="button" onClick={fecharForm}
                 style={{ padding:"9px 20px", borderRadius:8, border:"1px solid #d1d5db",
                          background:"white", cursor:"pointer", fontSize:13 }}>
                 Cancelar
@@ -224,9 +274,11 @@ const SensoresPage = () => {
                 style={{ padding:"9px 24px", borderRadius:8, border:"none",
                          background:"linear-gradient(135deg,#10b981,#059669)", color:"white",
                          cursor:"pointer", display:"flex", alignItems:"center", gap:7,
-                         fontWeight:600, fontSize:13 }}>
+                         fontWeight:600, fontSize:13, opacity: submitting ? 0.7 : 1 }}>
                 <Send size={13} />
-                {submitting ? "Cadastrando..." : "Confirmar"}
+                {submitting
+                  ? (editando ? "Salvando..." : "Cadastrando...")
+                  : (editando ? "Salvar alterações" : "Confirmar")}
               </button>
             </div>
           </form>
@@ -236,7 +288,6 @@ const SensoresPage = () => {
       {/* Filters bar */}
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
                     flexWrap:"wrap", gap:12 }}>
-        {/* Search */}
         <div style={{ position:"relative", minWidth:240, flex:"0 1 300px" }}>
           <Search size={15} style={{ position:"absolute", left:12, top:"50%",
                                      transform:"translateY(-50%)", color:"#9ca3af" }} />
@@ -247,7 +298,6 @@ const SensoresPage = () => {
                      background:"white", fontSize:13, boxShadow:"var(--shadow-sm)" }} />
         </div>
 
-        {/* Filter tabs */}
         <div className="filter-tabs">
           {FILTERS.map(({ key, label }) => (
             <button key={key} onClick={() => setActiveFilter(key)}
@@ -271,8 +321,7 @@ const SensoresPage = () => {
           ))}
         </div>
       ) : displayed.length === 0 ? (
-        <div className="glass-panel" style={{ padding:"48px 24px", textAlign:"center",
-                                              background:"white" }}>
+        <div className="glass-panel" style={{ padding:"48px 24px", textAlign:"center", background:"white" }}>
           <Cpu size={36} color="#d1d5db" style={{ marginBottom:12 }} />
           <p style={{ color:"#9ca3af", fontSize:14 }}>
             {search ? `Nenhum sensor encontrado para "${search}".` : "Nenhum sensor registrado ainda."}
@@ -281,11 +330,10 @@ const SensoresPage = () => {
       ) : (
         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(210px,1fr))", gap:14 }}>
           {displayed.map((s) => {
-            const { Icon, color, bg }        = resolveSensorConfig(s);
-            const { cls, label }             = statusBadge(s.estadoAtual);
+            const { Icon, color, bg } = resolveSensorConfig(s);
+            const { cls, label }      = statusBadge(s.estadoAtual);
             const val = s.valorAtual != null ? parseFloat(s.valorAtual) : null;
 
-            // Rough unit & progress
             const tipo = (s.tipoSensor?.nome || "").toLowerCase();
             let unit = "";
             let maxV = 100;
@@ -320,25 +368,42 @@ const SensoresPage = () => {
                 style={{ padding:"18px 20px", background:"white", display:"flex",
                          flexDirection:"column", gap:13,
                          border:"1px solid rgba(16,185,129,0.07)" }}>
+
                 {/* Header */}
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
-                  <div style={{ display:"flex", flexDirection:"column", gap:2 }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                      <div style={{ width:32, height:32, borderRadius:8, background:bg,
-                                    display:"flex", alignItems:"center", justifyContent:"center", color }}>
-                        <Icon size={16} />
+                  <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                    <div style={{ width:32, height:32, borderRadius:8, background:bg,
+                                  display:"flex", alignItems:"center", justifyContent:"center", color }}>
+                      <Icon size={16} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize:13, fontWeight:700, color:"#064e3b", lineHeight:1.2 }}>
+                        {s.nome || "Sensor"}
                       </div>
-                      <div>
-                        <div style={{ fontSize:13, fontWeight:700, color:"#064e3b", lineHeight:1.2 }}>
-                          {s.nome || "Sensor"}
-                        </div>
-                        <div style={{ fontSize:10, color:"#9ca3af" }}>
-                          {s.tipoSensor?.nome || "Tipo desconhecido"}
-                        </div>
+                      <div style={{ fontSize:10, color:"#9ca3af" }}>
+                        {s.tipoSensor?.nome || "Tipo desconhecido"}
                       </div>
                     </div>
                   </div>
-                  <span className={`badge ${cls}`} style={{ fontSize:10 }}>{label}</span>
+
+                  {/* Ações + badge */}
+                  <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:6 }}>
+                    <span className={`badge ${cls}`} style={{ fontSize:10 }}>{label}</span>
+                    <div style={{ display:"flex", gap:4 }}>
+                      <button onClick={() => abrirEdicao(s)} title="Editar"
+                        style={{ background:"none", border:"1px solid rgba(16,185,129,0.15)",
+                                 borderRadius:7, padding:"4px 6px", cursor:"pointer",
+                                 color:"#059669", display:"flex", alignItems:"center" }}>
+                        <Pencil size={12} />
+                      </button>
+                      <button onClick={() => setDeletando(s)} title="Remover"
+                        style={{ background:"none", border:"1px solid rgba(239,68,68,0.15)",
+                                 borderRadius:7, padding:"4px 6px", cursor:"pointer",
+                                 color:"#ef4444", display:"flex", alignItems:"center" }}>
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Value */}
@@ -364,6 +429,35 @@ const SensoresPage = () => {
           })}
         </div>
       )}
+
+      {/* Modal de confirmação de exclusão */}
+      {deletando && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.35)",
+                      display:"flex", alignItems:"center", justifyContent:"center", zIndex:999 }}>
+          <div className="glass-panel" style={{ background:"white", padding:28, borderRadius:16,
+                                                maxWidth:360, width:"90%", textAlign:"center" }}>
+            <Trash2 size={32} color="#ef4444" style={{ marginBottom:12 }} />
+            <h3 style={{ margin:"0 0 8px", fontSize:16, fontWeight:700 }}>Remover sensor?</h3>
+            <p style={{ fontSize:13, color:"#6b7280", margin:"0 0 20px" }}>
+              <strong>{deletando.nome}</strong> será removido permanentemente.
+            </p>
+            <div style={{ display:"flex", gap:10, justifyContent:"center" }}>
+              <button onClick={() => setDeletando(null)}
+                style={{ padding:"9px 20px", borderRadius:8, border:"1px solid #d1d5db",
+                         background:"white", cursor:"pointer", fontSize:13 }}>
+                Cancelar
+              </button>
+              <button onClick={confirmarDelete}
+                style={{ padding:"9px 20px", borderRadius:8, border:"none",
+                         background:"#ef4444", color:"white", cursor:"pointer",
+                         fontSize:13, fontWeight:600 }}>
+                Remover
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
