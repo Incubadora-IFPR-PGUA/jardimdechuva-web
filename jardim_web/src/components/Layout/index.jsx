@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Cpu, Sliders, History,
-  Bell, Search, Menu, X, LogOut, Droplet
+  Bell, Search, Menu, X, LogOut, Droplet, Building, Users
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import s from "./Layout.module.css";
@@ -21,6 +21,17 @@ const Layout = ({ children }) => {
     { path: "/jardins", label: "Jardins", icon: Bell },
     { path: "/notificacoes", label: "Notificações", icon: Bell },
   ];
+
+  const isPlatformAdmin = user?.cargos?.some(c => c.id_cargo <= 2 || c.idCargo <= 2) || 
+                          user?.organizacoes?.some(o => o.id_organizacao === 1 || o.idOrganizacao === 1);
+
+  if (isPlatformAdmin || user?.cargos?.some(c => c.id_cargo <= 3 || c.idCargo <= 3)) {
+    menuItems.push({ path: "/usuarios", label: "Usuários", icon: Users });
+  }
+  
+  if (isPlatformAdmin) {
+    menuItems.push({ path: "/organizacoes", label: "Organizações", icon: Building });
+  }
 
   const handleLogout = () => {
     logout();

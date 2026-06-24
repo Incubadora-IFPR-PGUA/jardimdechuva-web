@@ -12,7 +12,8 @@ import {
   X,
   LogOut,
   Droplet,
-  Users
+  Users,
+  Building
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -46,9 +47,18 @@ const Layout = ({ children }) => {
     { path: "/notificacoes", label: "Notificações", icon: Bell }
   ];
 
-  const adminItems = [
-    { path: "/usuarios", label: "Usuários", icon: Users }
-  ];
+  const isPlatformAdmin = user?.cargos?.some(c => c.id_cargo <= 2 || c.idCargo <= 2) || 
+                          user?.organizacoes?.some(o => o.id_organizacao === 1 || o.idOrganizacao === 1);
+
+  const adminItems = [];
+  
+  if (isPlatformAdmin || user?.cargos?.some(c => c.id_cargo <= 3 || c.idCargo <= 3)) {
+    adminItems.push({ path: "/usuarios", label: "Usuários", icon: Users });
+  }
+
+  if (isPlatformAdmin) {
+    adminItems.push({ path: "/organizacoes", label: "Organizações", icon: Building });
+  }
 
   const currentPath = location.pathname;
 
@@ -187,7 +197,7 @@ const Layout = ({ children }) => {
               );
             })}
 
-            {!isSidebarCollapsed && (
+            {!isSidebarCollapsed && adminItems.length > 0 && (
               <p
                 className="sidebar-label"
                 style={{

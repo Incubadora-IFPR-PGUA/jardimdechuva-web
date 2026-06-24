@@ -12,9 +12,33 @@ export const AuthProvider = ({ children }) => {
       return null;
     }
   });
-  const [token, setToken] = useState(() => localStorage.getItem("jdc_token") || null);
-  const [loading, setLoading] = useState(false);
+  const [token, setToken] = useState(() => {
+    const tk = localStorage.getItem("jdc_token");
+    if (tk) api.defaults.headers.common["Authorization"] = `Bearer ${tk}`;
+    return tk || null;
+  });
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  React.useEffect(() => {
+    const fetchMe = async () => {
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+      try {
+        const { data } = await api.get("/auth/me");
+        setUser(data.data);
+        localStorage.setItem("jdc_user", JSON.stringify(data.data));
+      } catch (err) {
+        console.error("Token inválido ou expirado", err);
+        logout();
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchMe();
+  }, [token]);
 
   const login = useCallback(async (email, senha) => {
     setLoading(true);
