@@ -13,7 +13,8 @@ import {
   LogOut,
   Droplet,
   Users,
-  Building
+  Building,
+  Server
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -58,6 +59,10 @@ const Layout = ({ children }) => {
 
   if (isPlatformAdmin) {
     adminItems.push({ path: "/organizacoes", label: "Organizações", icon: Building });
+  }
+
+  if (isPlatformAdmin) {
+    adminItems.push({ path: "/dispositivos", label: "Dispositivos", icon: Server });
   }
 
   const currentPath = location.pathname;

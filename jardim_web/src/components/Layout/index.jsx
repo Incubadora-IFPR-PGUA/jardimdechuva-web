@@ -33,6 +33,10 @@ const Layout = ({ children }) => {
     menuItems.push({ path: "/organizacoes", label: "Organizações", icon: Building });
   }
 
+  if (isPlatformAdmin) {
+    menuItems.push({ path: "/disposiivos", label: "Dispositivos", icon: Building });
+  }
+
   const handleLogout = () => {
     logout();
     navigate("/login", { replace: true });
