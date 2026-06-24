@@ -11,16 +11,22 @@ export const api = axios.create({
 // ── Interceptors ──────────────────────────────────────────────
 api.interceptors.request.use(
   (config) => {
-    if (import.meta.env.DEV) {
-      console.log(`🚀 [API] ${config.method.toUpperCase()} ${config.url}`);
+    const token = localStorage.getItem('jdc_token')
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
     }
-    return config;
+
+    if (import.meta.env.DEV) {
+      console.log(`🚀 [API] ${config.method.toUpperCase()} ${config.url}`)
+    }
+
+    return config
   },
   (error) => {
-    console.error("❌ [API] Request error:", error);
-    return Promise.reject(error);
+    console.error('❌ [API] Request error:', error)
+    return Promise.reject(error)
   }
-);
+)
 
 api.interceptors.response.use(
   (response) => {

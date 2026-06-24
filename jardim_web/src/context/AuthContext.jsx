@@ -20,9 +20,12 @@ export const AuthProvider = ({ children }) => {
     setLoading(true);
     setError(null);
     try {
-      // Tenta autenticar via API
       const { data } = await api.post("/auth/login", { email, senha });
-      const { token: tk, user: u } = data;
+
+      // O retorno real é: { data: { access_token, refresh_token, usuario }, message, status }
+      const tk = data.data.access_token;
+      const u  = data.data.usuario;
+
       setToken(tk);
       setUser(u);
       localStorage.setItem("jdc_token", tk);
@@ -30,21 +33,7 @@ export const AuthProvider = ({ children }) => {
       api.defaults.headers.common["Authorization"] = `Bearer ${tk}`;
       return { success: true };
     } catch (err) {
-      // Fallback para demo quando API não está disponível
-      if (!err.response ||
-          err.code === "ERR_NETWORK" ||
-          err.code === "ECONNREFUSED") {
-        const demoUser = { id: 1, nome: "Administrador", email, role: "admin" };
-        const demoToken = "demo-token-jardim-chuva";
-        setUser(demoUser);
-        setToken(demoToken);
-        localStorage.setItem("jdc_token", demoToken);
-        localStorage.setItem("jdc_user", JSON.stringify(demoUser));
-        return { success: true };
-      }
-      const msg = err.response?.data?.message || "Credenciais inválidas. Tente novamente.";
-      setError(msg);
-      return { success: false, error: msg };
+      // ... resto igual
     } finally {
       setLoading(false);
     }

@@ -76,7 +76,7 @@ const LoginPage = () => {
     setSubmitAnim(false);
 
     if (result.success) {
-      navigate("/", { replace: true });
+      navigate("/pages/dashboard", { replace: true });
     }
   };
 
