@@ -16,6 +16,7 @@ import Jardins from "../pages/JardinsPage";
 import Usuarios from "../pages/Usuarios/UsuariosPage";
 import Organizacoes from "../pages/Organizacoes";
 import Dispositivos from "../pages/Dispositivos/DispositivosPage";
+import TiposSensores from "../pages/TiposSensores/TiposSensoresPage";
 
 const AppRoutes = () => (
   <BrowserRouter>
@@ -40,6 +41,7 @@ const AppRoutes = () => (
                   <Route path="/usuarios" element={<Usuarios />} />
                   <Route path="/organizacoes" element={<Organizacoes />} />
                   <Route path="/dispositivos" element={<Dispositivos />} />
+                  <Route path="/tipos-sensores" element={<TiposSensores />} />
                   <Route path="*"             element={<Navigate to="/" replace />} />
                 </Routes>
               </Layout>

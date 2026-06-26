@@ -51,7 +51,7 @@ const FILTERS = [
   { key:"acesso",label:"Acesso" },
 ];
 
-const FORM_EMPTY = { nome:"", idDispositivo:"1", idTipoSensor:"1", mqttTopicoLeitura:"", localizacao:"" };
+const FORM_EMPTY = { nome:"", idDispositivo:"1", idTipoSensor:"1", mqttTopicoLeitura:"", localizacao:"", valorMin:"", valorMax:"" };
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -118,6 +118,8 @@ const SensoresPage = () => {
       idTipoSensor: sensor.idTipoSensor || sensor.id_tipo_sensor || "1",
       mqttTopicoLeitura: sensor.mqttTopicoLeitura || sensor.mqtt_topico_leitura || "",
       localizacao: sensor.localizacao || "",
+      valorMin: sensor.configuracao?.valorMin ?? sensor.configuracao?.valor_min ?? "",
+      valorMax: sensor.configuracao?.valorMax ?? sensor.configuracao?.valor_max ?? "",
     });
     setShowForm(true);
   };
@@ -143,6 +145,9 @@ const SensoresPage = () => {
           nome: form.nome,
           mqttTopicoLeitura: form.mqttTopicoLeitura,
           localizacao: form.localizacao,
+          idTipoSensor: Number(form.idTipoSensor),
+          valorMin: form.valorMin,
+          valorMax: form.valorMax,
         });
         toast.success(`Sensor "${form.nome}" atualizado!`);
       } else {
@@ -242,27 +247,43 @@ const SensoresPage = () => {
               </div>
             ))}
 
-            {/* Tipo de Sensor — oculto na edição */}
-            {!editando && (
-              <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-                <label style={{ fontSize:12, fontWeight:600, color:"#4b5563" }}>Tipo de Sensor</label>
-                <select value={form.idTipoSensor}
-                  onChange={(e) => setForm((f) => ({ ...f, idTipoSensor: e.target.value }))}
-                  style={{ padding:"9px 12px", borderRadius:8,
-                           border:"1px solid rgba(16,185,129,0.2)", outline:"none",
-                           background:"white", fontSize:13 }}>
-                  <option value="1">Chuva (Pluviômetro)</option>
-                  <option value="2">Clima (DHT22 / BME280)</option>
-                  <option value="3">Umidade do Solo</option>
-                  <option value="4">Nível de Água (Ultrassônico)</option>
-                  <option value="5">Luminosidade (BH1750)</option>
-                  <option value="6">pH do Solo</option>
-                  <option value="7">Vazão de Água</option>
-                  <option value="8">Qualidade da Água</option>
-                  <option value="9">Presença / Acesso</option>
-                </select>
-              </div>
-            )}
+            {/* Tipo de Sensor */}
+            <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+              <label style={{ fontSize:12, fontWeight:600, color:"#4b5563" }}>Tipo de Sensor</label>
+              <select value={form.idTipoSensor}
+                onChange={(e) => setForm((f) => ({ ...f, idTipoSensor: e.target.value }))}
+                style={{ padding:"9px 12px", borderRadius:8,
+                         border:"1px solid rgba(16,185,129,0.2)", outline:"none",
+                         background:"white", fontSize:13 }}>
+                <option value="1">Chuva (Pluviômetro)</option>
+                <option value="2">Clima (DHT22 / BME280)</option>
+                <option value="3">Umidade do Solo</option>
+                <option value="4">Nível de Água (Ultrassônico)</option>
+                <option value="5">Luminosidade (BH1750)</option>
+                <option value="6">pH do Solo</option>
+                <option value="7">Vazão de Água</option>
+                <option value="8">Qualidade da Água</option>
+                <option value="9">Presença / Acesso</option>
+              </select>
+            </div>
+
+            <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+              <label style={{ fontSize:12, fontWeight:600, color:"#4b5563" }}>Valor Mínimo (Alerta)</label>
+              <input type="number" step="any" value={form.valorMin} placeholder="Ex: 0"
+                onChange={(e) => setForm((f) => ({ ...f, valorMin: e.target.value }))}
+                style={{ padding:"9px 12px", borderRadius:8,
+                         border:"1px solid rgba(16,185,129,0.2)", outline:"none",
+                         fontSize:13, background: "white" }} />
+            </div>
+
+            <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+              <label style={{ fontSize:12, fontWeight:600, color:"#4b5563" }}>Valor Máximo (Alerta)</label>
+              <input type="number" step="any" value={form.valorMax} placeholder="Ex: 100"
+                onChange={(e) => setForm((f) => ({ ...f, valorMax: e.target.value }))}
+                style={{ padding:"9px 12px", borderRadius:8,
+                         border:"1px solid rgba(16,185,129,0.2)", outline:"none",
+                         fontSize:13, background: "white" }} />
+            </div>
 
             <div style={{ gridColumn:"1/-1", display:"flex", justifyContent:"flex-end", gap:10 }}>
               <button type="button" onClick={fecharForm}

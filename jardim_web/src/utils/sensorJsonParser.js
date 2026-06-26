@@ -14,8 +14,8 @@ const DETECTION_RULES = [
     label: 'Qualidade do Ar',
     match: (keys) => keys.includes('pm25') || keys.includes('pm10') || keys.includes('pm2_5'),
     series: [
-      { key: 'pm25',    label: 'PM2.5 (µg/m³)', color: '#8b5cf6', altKeys: ['pm2_5', 'pm2.5'] },
-      { key: 'pm10',    label: 'PM10 (µg/m³)',  color: '#f59e0b' },
+      { key: 'pm25',    label: 'PM2.5 (µg/m³)', color: '#00e396', altKeys: ['pm2_5', 'pm2.5'] },
+      { key: 'pm10',    label: 'PM10 (µg/m³)',  color: '#ff4560' },
     ],
     unit: 'µg/m³',
     icon: 'wind',
@@ -164,8 +164,11 @@ export function parseLeituras(leituras, tipoSensor = {}) {
   // Montar chartData
   const chartData = [...leituras].reverse().map((l) => {
     const json = l.valorJson || l.valor_json || {};
+    const dataOriginal = new Date(l.dataHora || l.data_hora);
+    dataOriginal.setHours(dataOriginal.getHours() - 3);
+
     const point = {
-      name: new Date(l.dataHora || l.data_hora).toLocaleString('pt-BR', {
+      name: dataOriginal.toLocaleString('pt-BR', {
         day: '2-digit', month: '2-digit',
         hour: '2-digit', minute: '2-digit',
       }),

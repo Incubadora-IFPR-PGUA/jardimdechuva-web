@@ -10,10 +10,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "apexcharts": "^5.15.2",
     "axios": "^1.16.1",
     "bootstrap": "^5.3.8",
     "lucide-react": "^1.16.0",
     "react": "^19.2.6",
+    "react-apexcharts": "^2.1.1",
     "react-dom": "^19.2.6",
     "react-is": "^19.2.7",
     "react-pro-sidebar": "^1.1.0",

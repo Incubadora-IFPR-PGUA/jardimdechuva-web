@@ -5,11 +5,7 @@ import {
   FlaskConical, Waves, Cpu, Activity,
   TrendingUp, TrendingDown, Minus,
 } from "lucide-react";
-import {
-  AreaChart, Area, BarChart, Bar, LineChart, Line,
-  XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Legend,
-} from "recharts";
+import ReactApexChart from "react-apexcharts";
 import { toast } from "react-toastify";
 import { leituraService, sensorService } from "../services/api";
 import { parseLeituras, calcKpis, exportCsv } from "../utils/sensorJsonParser";
@@ -65,24 +61,7 @@ const trendIcon = (delta) => {
 
 const fmt = (n, d = 2) => n != null ? Number(n).toLocaleString("pt-BR", { maximumFractionDigits: d }) : "—";
 
-// ─── Tooltip customizado ──────────────────────────────────────────────────────
-
-const ChartTooltip = ({ active, payload, label }) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div style={{
-      background: "white", borderRadius: 12, padding: "10px 14px",
-      border: "1px solid rgba(16,185,129,0.15)", boxShadow: "var(--shadow-md)", fontSize: 12,
-    }}>
-      <p style={{ fontWeight: 700, color: "#064e3b", marginBottom: 6 }}>{label}</p>
-      {payload.map((p) => (
-        <p key={p.dataKey} style={{ color: p.color, margin: "2px 0" }}>
-          {p.name}: <strong>{p.value != null ? fmt(p.value, 3) : "—"}</strong>
-        </p>
-      ))}
-    </div>
-  );
-};
+// ─── Tooltip customizado removido (ApexCharts já tem nativo) ───────────────
 
 // ─── KPI Card ─────────────────────────────────────────────────────────────────
 
@@ -118,57 +97,90 @@ const SensorChart = ({ chartData, series, tipo }) => {
     );
   }
 
-  const interval = Math.max(0, Math.floor(chartData.length / 8) - 1);
+  const dates = chartData.map(item => item.name);
+  const chartType = tipo === "chuva" ? "bar" : "area";
 
-  // Chuva → BarChart; genérico único → LineChart; demais → AreaChart
-  if (tipo === "chuva") {
-    return (
-      <ResponsiveContainer width="100%" height={260}>
-        <BarChart data={chartData} margin={{ top: 5, right: 8, left: -20, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-          <XAxis dataKey="name" stroke="#c1c9d2" fontSize={10} tickLine={false} interval={interval} />
-          <YAxis stroke="#c1c9d2" fontSize={10} tickLine={false} />
-          <Tooltip content={<ChartTooltip />} />
-          {series.map((s) => (
-            <Bar key={s.key} dataKey={s.key} name={s.label} fill={s.color}
-                 radius={[4, 4, 0, 0]} maxBarSize={24} />
-          ))}
-        </BarChart>
-      </ResponsiveContainer>
-    );
-  }
+  const apexOptions = {
+    chart: {
+      type: chartType,
+      height: 350,
+      fontFamily: 'inherit',
+      zoom: { enabled: true, type: 'x' },
+      toolbar: { 
+        show: false
+      },
+      animations: {
+        enabled: true,
+        easing: 'linear',
+        dynamicAnimation: { speed: 800 }
+      }
+    },
+    colors: series.map(s => s.color),
+    dataLabels: { enabled: false },
+    stroke: { curve: 'smooth', width: 2 },
+    fill: chartType === "area" ? {
+      type: 'gradient',
+      gradient: {
+        shadeIntensity: 1,
+        opacityFrom: 0.3,
+        opacityTo: 0.05,
+        stops: [0, 90, 100]
+      }
+    } : { opacity: 0.8 },
+    xaxis: {
+      categories: dates,
+      labels: {
+        style: { colors: '#9ca3af', fontSize: '10px' },
+        hideOverlappingLabels: true,
+      },
+      axisBorder: { show: false },
+      axisTicks: { show: false }
+    },
+    yaxis: {
+      labels: {
+        style: { colors: '#9ca3af', fontSize: '10px' },
+        formatter: (val) => val != null ? Number(val).toFixed(2) : ""
+      },
+      min: (min) => min,
+      max: (max) => max
+    },
+    grid: {
+      borderColor: '#f1f5f9',
+      strokeDashArray: 3,
+    },
+    tooltip: { 
+      theme: 'light',
+      style: { fontSize: '12px' }
+    },
+    legend: {
+      position: 'top',
+      horizontalAlign: 'right',
+      fontSize: '11px',
+      offsetY: 15,
+      markers: { radius: 12 }
+    }
+  };
+
+  const apexSeries = series.map(s => ({
+    name: s.label,
+    data: chartData.map(item => item[s.key] != null ? item[s.key] : null)
+  }));
 
   return (
-    <ResponsiveContainer width="100%" height={260}>
-      <AreaChart data={chartData} margin={{ top: 5, right: 8, left: -20, bottom: 0 }}>
-        <defs>
-          {series.map((s, i) => (
-            <linearGradient key={s.key} id={`grad_${s.key}_${i}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%"  stopColor={s.color} stopOpacity={0.25} />
-              <stop offset="95%" stopColor={s.color} stopOpacity={0.02} />
-            </linearGradient>
-          ))}
-        </defs>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-        <XAxis dataKey="name" stroke="#c1c9d2" fontSize={10} tickLine={false} interval={interval} />
-        <YAxis stroke="#c1c9d2" fontSize={10} tickLine={false} />
-        <Tooltip content={<ChartTooltip />} />
-        {series.length > 1 && (
-          <Legend iconType="circle" wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
-        )}
-        {series.map((s, i) => (
-          <Area key={s.key} type="monotone" dataKey={s.key} name={s.label}
-            stroke={s.color} strokeWidth={2.5}
-            fill={`url(#grad_${s.key}_${i})`} connectNulls />
-        ))}
-      </AreaChart>
-    </ResponsiveContainer>
+    <div style={{ width: "100%", height: 350 }}>
+      <ReactApexChart 
+        options={apexOptions} 
+        series={apexSeries} 
+        type={chartType} 
+        height={350} 
+      />
+    </div>
   );
 };
 
 // ─── Tabela de leituras ───────────────────────────────────────────────────────
 
-const LeiturasTable = ({ chartData, series }) => {
+const LeiturasTable = ({ chartData, series, qualidadeFn }) => {
   const shown = chartData.slice().reverse().slice(0, 50);
   return (
     <div style={{ overflowX: "auto" }}>
@@ -183,25 +195,55 @@ const LeiturasTable = ({ chartData, series }) => {
                 {s.label}
               </th>
             ))}
+            {qualidadeFn && (
+              <th style={{ textAlign: "center", padding: "8px 12px", color: "#9ca3af",
+                           fontWeight: 600, whiteSpace: "nowrap" }}>
+                Qualidade
+              </th>
+            )}
           </tr>
         </thead>
         <tbody>
-          {shown.map((row, i) => (
-            <tr key={i} style={{
-              borderBottom: "1px solid #f9fafb",
-              background: i % 2 === 0 ? "transparent" : "rgba(16,185,129,0.02)",
-            }}>
-              <td style={{ padding: "7px 12px", color: "#4b5563", whiteSpace: "nowrap" }}>
-                {row.name}
-              </td>
-              {series.map((s) => (
-                <td key={s.key} style={{ padding: "7px 12px", textAlign: "right",
-                                          fontWeight: 600, color: "#064e3b" }}>
-                  {row[s.key] != null ? fmt(row[s.key], 3) : <span style={{ color: "#d1d5db" }}>—</span>}
+          {shown.map((row, i) => {
+            let q = null;
+            if (qualidadeFn && series.length > 0) {
+              const mainValue = row[series[0].key];
+              if (mainValue != null) q = qualidadeFn(mainValue);
+            }
+
+            return (
+              <tr key={row._raw?.idLeitura || row._raw?.id_leitura || i} className="new-row-anim" style={{
+                borderBottom: "1px solid #f9fafb",
+                background: i % 2 === 0 ? "transparent" : "rgba(16,185,129,0.02)",
+              }}>
+                <td style={{ padding: "7px 12px", color: "#4b5563", whiteSpace: "nowrap" }}>
+                  {row.name}
                 </td>
-              ))}
-            </tr>
-          ))}
+                {series.map((s) => (
+                  <td key={s.key} style={{ padding: "7px 12px", textAlign: "right",
+                                            fontWeight: 600, color: "#064e3b" }}>
+                    {row[s.key] != null ? fmt(row[s.key], 3) : <span style={{ color: "#d1d5db" }}>—</span>}
+                  </td>
+                ))}
+                {qualidadeFn && (
+                  <td style={{ padding: "7px 12px", textAlign: "center" }}>
+                    {q ? (
+                      <span style={{
+                        background: `${q.color}15`,
+                        color: q.color,
+                        padding: "3px 8px",
+                        borderRadius: 12,
+                        fontSize: 10,
+                        fontWeight: 700
+                      }}>
+                        {q.label}
+                      </span>
+                    ) : <span style={{ color: "#d1d5db" }}>—</span>}
+                  </td>
+                )}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
       {chartData.length > 50 && (
@@ -223,6 +265,7 @@ const HistoricoPage = () => {
   const [search, setSearch]                 = useState("");
   const [loadingSensores, setLoadingSensores] = useState(true);
   const [loadingLeituras, setLoadingLeituras] = useState(false);
+  const [filtrarAnomalias, setFiltrarAnomalias] = useState(true);
 
   const periodCfg = PERIODS.find((p) => p.key === period);
 
@@ -235,9 +278,9 @@ const HistoricoPage = () => {
   }, []);
 
   // ── Buscar leituras do sensor selecionado ────────────────────
-  const fetchLeituras = useCallback(async (sensor, cfg) => {
+  const fetchLeituras = useCallback(async (sensor, cfg, silent = false) => {
     if (!sensor) return;
-    setLoadingLeituras(true);
+    if (!silent) setLoadingLeituras(true);
     try {
       const now   = new Date();
       const start = new Date(now - cfg.hours * 3600_000).toISOString();
@@ -255,7 +298,12 @@ const HistoricoPage = () => {
   }, []);
 
   useEffect(() => {
-    if (sensorSelecionado) fetchLeituras(sensorSelecionado, periodCfg);
+    if (sensorSelecionado) {
+      fetchLeituras(sensorSelecionado, periodCfg);
+      // Atualização em tempo real (polling silencioso)
+      const iv = setInterval(() => fetchLeituras(sensorSelecionado, periodCfg, true), 10000);
+      return () => clearInterval(iv);
+    }
   }, [sensorSelecionado, period, fetchLeituras, periodCfg]);
 
   // ── Parser dinâmico ──────────────────────────────────────────
@@ -268,6 +316,54 @@ const HistoricoPage = () => {
     () => calcKpis(parsed.chartData, parsed.series),
     [parsed]
   );
+
+  const chartDataFiltrado = useMemo(() => {
+    let data = parsed.chartData;
+    if (!filtrarAnomalias) return data;
+    
+    const maxVal = sensorSelecionado?.configuracao?.valorMax;
+    const minVal = sensorSelecionado?.configuracao?.valorMin;
+
+    if (maxVal != null || minVal != null) {
+       return data.filter(d => {
+         let isAnomaly = false;
+         parsed.series.forEach(s => {
+           if (d[s.key] != null) {
+              if (maxVal != null && d[s.key] > maxVal) isAnomaly = true;
+              if (minVal != null && d[s.key] < minVal) isAnomaly = true;
+           }
+         });
+         return !isAnomaly;
+       });
+    }
+
+    // Filtro estatístico automático usando IQR
+    const allVals = [];
+    parsed.series.forEach(s => {
+      data.forEach(d => { if (d[s.key] != null) allVals.push(d[s.key]); });
+    });
+    if (allVals.length === 0) return data;
+    
+    allVals.sort((a,b) => a - b);
+    const q1 = allVals[Math.floor(allVals.length * 0.25)];
+    const q3 = allVals[Math.floor(allVals.length * 0.75)];
+    const iqr = q3 - q1;
+    
+    if (iqr === 0) return data; 
+    
+    const limiteSup = q3 + (3 * iqr);
+    const limiteInf = q1 - (3 * iqr);
+
+    return data.filter(d => {
+       let isAnomaly = false;
+       parsed.series.forEach(s => {
+         if (d[s.key] != null) {
+            if (d[s.key] > limiteSup || d[s.key] < limiteInf) isAnomaly = true;
+         }
+       });
+       return !isAnomaly;
+    });
+  }, [parsed.chartData, parsed.series, filtrarAnomalias, sensorSelecionado]);
 
   // ── Sensores filtrados ───────────────────────────────────────
   const sensoresFiltrados = useMemo(() => {
@@ -308,20 +404,7 @@ const HistoricoPage = () => {
         </div>
 
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          {/* Período */}
-          <div style={{ display: "flex", gap: 4, background: "white", padding: 4,
-                        borderRadius: 12, boxShadow: "var(--shadow-sm)",
-                        border: "1px solid rgba(16,185,129,0.1)" }}>
-            {PERIODS.map(({ key, label }) => (
-              <button key={key} onClick={() => setPeriod(key)}
-                style={{ padding: "7px 14px", borderRadius: 8, border: "none", cursor: "pointer",
-                         background: period === key ? "#064e3b" : "transparent",
-                         color: period === key ? "white" : "#6b7280",
-                         fontWeight: 600, fontSize: 13, transition: "all 0.15s" }}>
-                {label}
-              </button>
-            ))}
-          </div>
+          {/* Botão de Exportar apenas */}
 
           <button onClick={handleExport} className="hover-scale"
             style={{ background: "linear-gradient(135deg,#10b981,#059669)", border: "none",
@@ -333,89 +416,84 @@ const HistoricoPage = () => {
         </div>
       </div>
 
-      {/* ── Layout 2 colunas ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 20, alignItems: "start" }}
-           className="historico-grid">
-
-        {/* ── Coluna Esquerda: Lista de Sensores ── */}
-        <div className="glass-panel" style={{ padding: 0, background: "white", overflow: "hidden" }}>
-          {/* Search */}
-          <div style={{ padding: "14px 14px 10px", borderBottom: "1px solid #f3f4f6" }}>
-            <div style={{ position: "relative" }}>
-              <Search size={14} style={{ position: "absolute", left: 10, top: "50%",
-                                         transform: "translateY(-50%)", color: "#9ca3af" }} />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar sensor..."
-                style={{ width: "100%", padding: "8px 10px 8px 30px", borderRadius: 8,
-                         border: "1px solid rgba(16,185,129,0.15)", outline: "none",
-                         fontSize: 12, background: "#fafafa" }}
-              />
-            </div>
-          </div>
-
-          {/* Lista */}
-          <div style={{ maxHeight: 520, overflowY: "auto" }}>
-            {loadingSensores ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} style={{ padding: "12px 14px", borderBottom: "1px solid #f9fafb" }}>
-                  <div className="skeleton" style={{ height: 12, width: "60%", marginBottom: 6 }} />
-                  <div className="skeleton" style={{ height: 10, width: "40%" }} />
-                </div>
-              ))
-            ) : sensoresFiltrados.length === 0 ? (
-              <div style={{ padding: 24, textAlign: "center", color: "#9ca3af", fontSize: 13 }}>
-                Nenhum sensor encontrado.
-              </div>
-            ) : (
-              sensoresFiltrados.map((s) => {
-                const SIcon = getSensorIcon(s);
-                const { color, bg } = getSensorColor(s);
-                const isSelected = sensorSelecionado?.idSensor === (s.idSensor || s.id_sensor);
-                const val = s.valorAtual != null ? parseFloat(s.valorAtual) : null;
-
-                return (
-                  <button
-                    key={s.idSensor || s.id_sensor}
-                    onClick={() => setSensor(s)}
-                    style={{
-                      width: "100%", display: "flex", alignItems: "center", gap: 12,
-                      padding: "12px 14px", background: isSelected ? `${color}0f` : "transparent",
-                      border: "none", borderBottom: "1px solid #f9fafb",
-                      borderLeft: isSelected ? `3px solid ${color}` : "3px solid transparent",
-                      cursor: "pointer", transition: "all 0.15s", textAlign: "left",
-                    }}
-                  >
-                    <div style={{ width: 34, height: 34, borderRadius: 8, background: bg,
-                                  display: "flex", alignItems: "center", justifyContent: "center",
-                                  color, flexShrink: 0 }}>
-                      <SIcon size={16} />
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "#064e3b",
-                                    lineHeight: 1.2, whiteSpace: "nowrap",
-                                    overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {s.nome || `Sensor #${s.idSensor}`}
-                      </div>
-                      <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>
-                        {s.tipoSensor?.nome || "Tipo desconhecido"}
-                        {val != null && (
-                          <span style={{ color, fontWeight: 600, marginLeft: 6 }}>
-                            · {fmt(val, 1)} {s.tipoSensor?.unidade || ""}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    {isSelected && <ChevronRight size={14} color={color} style={{ flexShrink: 0 }} />}
-                  </button>
-                );
-              })
-            )}
+      {/* ── Carrossel de Sensores (Horizontal) ── */}
+      <div className="glass-panel" style={{ padding: 14, background: "white", marginBottom: 20 }}>
+        {/* Search */}
+        <div style={{ marginBottom: 12, maxWidth: 300 }}>
+          <div style={{ position: "relative" }}>
+            <Search size={14} style={{ position: "absolute", left: 10, top: "50%",
+                                       transform: "translateY(-50%)", color: "#9ca3af" }} />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar sensor..."
+              style={{ width: "100%", padding: "8px 10px 8px 30px", borderRadius: 8,
+                       border: "1px solid rgba(16,185,129,0.15)", outline: "none",
+                       fontSize: 12, background: "#fafafa" }}
+            />
           </div>
         </div>
 
-        {/* ── Coluna Direita: Gráfico e Dados ── */}
+        {/* Lista Horizontal */}
+        <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8 }} className="custom-scrollbar">
+          {loadingSensores ? (
+            Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="skeleton" style={{ width: 220, height: 60, borderRadius: 12, flexShrink: 0 }} />
+            ))
+          ) : sensoresFiltrados.length === 0 ? (
+            <div style={{ padding: 24, color: "#9ca3af", fontSize: 13 }}>
+              Nenhum sensor encontrado.
+            </div>
+          ) : (
+            sensoresFiltrados.map((s) => {
+              const SIcon = getSensorIcon(s);
+              const { color, bg } = getSensorColor(s);
+              const isSelected = sensorSelecionado?.idSensor === (s.idSensor || s.id_sensor);
+              const val = s.valorAtual != null ? parseFloat(s.valorAtual) : null;
+
+              return (
+                <button
+                  key={s.idSensor || s.id_sensor}
+                  onClick={() => setSensor(s)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 12,
+                    padding: "12px 14px", background: isSelected ? `${color}0f` : "transparent",
+                    border: isSelected ? `1px solid ${color}` : "1px solid #f9fafb",
+                    borderRadius: 12,
+                    cursor: "pointer", transition: "all 0.15s", textAlign: "left",
+                    minWidth: 220, flexShrink: 0
+                  }}
+                  className="hover-scale"
+                >
+                  <div style={{ width: 34, height: 34, borderRadius: 8, background: bg,
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                color, flexShrink: 0 }}>
+                    <SIcon size={16} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#064e3b",
+                                  lineHeight: 1.2, whiteSpace: "nowrap",
+                                  overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {s.nome || `Sensor #${s.idSensor}`}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {s.tipoSensor?.nome || "Tipo desconhecido"}
+                      {val != null && (
+                        <span style={{ color, fontWeight: 600, marginLeft: 6 }}>
+                          · {fmt(val, 1)} {s.tipoSensor?.unidade || ""}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </div>
+      </div>
+
+      {/* ── Conteúdo Principal ── */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
         {!sensorSelecionado ? (
           <div className="glass-panel" style={{
             padding: "60px 24px", background: "white", textAlign: "center",
@@ -510,20 +588,46 @@ const HistoricoPage = () => {
               <div style={{ display: "flex", justifyContent: "space-between",
                             alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
                 <div>
-                  <h3 style={{ fontSize: 15, margin: 0 }}>Leituras — {period}</h3>
-                  <p style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>
-                    {parsed.chartData.length} pontos · unidade: {parsed.unit || "—"}
+                  <h3 style={{ fontSize: 18, fontWeight: 700, color: "#374151", margin: 0 }}>
+                    {parsed.tipo === "ar" ? "Concentração de Partículas" : `Histórico de ${parsed.label}`}
+                  </h3>
+                  <p style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
+                    {parsed.tipo === "ar" ? "Variação de PM2.5 e PM10 no ar" : `${parsed.chartData.length} pontos · unidade: ${parsed.unit || "—"}`}
                   </p>
                 </div>
-                <span className="badge badge-success" style={{ fontSize: 10 }}>
-                  <Activity size={9} /> Tempo real
-                </span>
+                <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#374151", cursor: "pointer", background: "#f3f4f6", padding: "5px 10px", borderRadius: 8, userSelect: "none" }}>
+                    <input type="checkbox" checked={filtrarAnomalias} onChange={e => setFiltrarAnomalias(e.target.checked)} style={{ cursor: "pointer" }} />
+                    Filtrar Anomalias
+                  </label>
+                  <span className="badge badge-success" style={{ fontSize: 10 }}>
+                    <Activity size={9} /> Tempo real
+                  </span>
+                  <select
+                    value={period}
+                    onChange={(e) => setPeriod(e.target.value)}
+                    style={{
+                      padding: "6px 12px",
+                      borderRadius: 8,
+                      border: "1px solid rgba(16,185,129,0.2)",
+                      outline: "none",
+                      fontSize: 12,
+                      background: "white",
+                      color: "#374151",
+                      cursor: "pointer"
+                    }}
+                  >
+                    {PERIODS.map(p => (
+                      <option key={p.key} value={p.key}>{p.label === "24h" ? "Hoje" : p.label}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               {loadingLeituras ? (
                 <div className="skeleton" style={{ height: 260, borderRadius: 12 }} />
               ) : (
-                <SensorChart chartData={parsed.chartData} series={parsed.series} tipo={parsed.tipo} />
+                <SensorChart chartData={chartDataFiltrado} series={parsed.series} tipo={parsed.tipo} />
               )}
             </div>
 
@@ -538,7 +642,7 @@ const HistoricoPage = () => {
               {loadingLeituras ? (
                 <div className="skeleton" style={{ height: 160, borderRadius: 12 }} />
               ) : (
-                <LeiturasTable chartData={parsed.chartData} series={parsed.series} />
+                <LeiturasTable chartData={parsed.chartData} series={parsed.series} qualidadeFn={parsed.qualidade} />
               )}
             </div>
           </div>
@@ -546,8 +650,26 @@ const HistoricoPage = () => {
       </div>
 
       <style>{`
-        @media (max-width: 900px) {
-          .historico-grid { grid-template-columns: 1fr !important; }
+        .custom-scrollbar::-webkit-scrollbar {
+          height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: #f1f5f9;
+          border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
+          border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #94a3b8;
+        }
+        @keyframes fadeInRow {
+          0% { opacity: 0; transform: translateY(-10px); background: #d1fae5; }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        .new-row-anim {
+          animation: fadeInRow 0.6s ease-out forwards;
         }
       `}</style>
     </div>

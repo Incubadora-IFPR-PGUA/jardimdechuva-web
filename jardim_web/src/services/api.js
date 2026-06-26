@@ -104,7 +104,13 @@ export const jardimService = {
 };
 
 // ── Tipos ─────────────────────────────────────────────────────
-export const tipoSensorService = { listar: () => api.get("/tipos-sensores") };
+export const tipoSensorService = {
+  listar: () => api.get("/tipos-sensores"),
+  buscar: (id) => api.get(`/tipos-sensores/${id}`),
+  criar: (data) => api.post("/tipos-sensores", data),
+  atualizar: (id, d) => api.put(`/tipos-sensores/${id}`, d),
+  deletar: (id) => api.delete(`/tipos-sensores/${id}`),
+};
 export const tipoDispositivoService = { listar: () => api.get("/tipos-dispositivos") };
 
 // ── Usuários ──────────────────────────────────────────────────
