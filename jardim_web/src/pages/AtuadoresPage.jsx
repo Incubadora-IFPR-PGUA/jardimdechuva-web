@@ -135,7 +135,7 @@ const AtuadoresPage = () => {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 22 }} className="animate-fade-up">
+    <div style={{ display: "flex: 1", flexDirection: "column", gap: 22, width: "100%", flex: 1 }} className="animate-fade-up">
 
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start",

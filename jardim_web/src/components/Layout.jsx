@@ -9,7 +9,6 @@ import {
   Trees,
   Search,
   Menu,
-  X,
   LogOut,
   Droplet,
   Users,
@@ -18,7 +17,6 @@ import {
   Settings
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 
 const Layout = ({ children }) => {
   const location = useLocation();
@@ -42,7 +40,7 @@ const Layout = ({ children }) => {
 
   const menuItems = [
     { path: "/", label: "Dashboard", icon: LayoutDashboard },
-    { path: "/jardins", label: "Jardins", icon: Trees }, 
+    { path: "/jardins", label: "Jardins", icon: Trees },
     { path: "/sensores", label: "Sensores", icon: Cpu },
     { path: "/atuadores", label: "Atuadores", icon: Sliders },
     { path: "/historico", label: "Histórico", icon: History },
@@ -60,9 +58,6 @@ const Layout = ({ children }) => {
 
   if (isPlatformAdmin) {
     adminItems.push({ path: "/organizacoes", label: "Organizações", icon: Building });
-  }
-
-  if (isPlatformAdmin) {
     adminItems.push({ path: "/dispositivos", label: "Dispositivos", icon: Server });
     adminItems.push({ path: "/tipos-sensores", label: "Tipos Sensores", icon: Settings });
   }
@@ -71,7 +66,7 @@ const Layout = ({ children }) => {
 
   return (
     <div className="app-layout" style={{ display: "flex", width: "100%", minHeight: "100vh" }}>
-      {/* Sidebar Overlay for Mobile */}
+      {/* Sidebar Overlay Mobile */}
       {isSidebarOpen && (
         <div
           onClick={() => setIsSidebarOpen(false)}
@@ -89,13 +84,17 @@ const Layout = ({ children }) => {
       <aside
         className={`sidebar-container ${isSidebarCollapsed ? "sidebar-collapsed" : ""} ${isSidebarOpen ? "mobile-open" : ""}`}
         style={{
-          width: isSidebarCollapsed && window.innerWidth > 768 ? "80px" : undefined,
-          padding: isSidebarCollapsed && window.innerWidth > 768 ? "24px 12px" : undefined,
-          transition: "all 0.3s ease"
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          width: isSidebarCollapsed && window.innerWidth > 768 ? "80px" : "260px",
+          padding: isSidebarCollapsed && window.innerWidth > 768 ? "24px 12px" : "24px 16px",
+          transition: "all 0.3s ease",
+          flexShrink: 0
         }}
       >
         <div style={{ display: "flex", flexDirection: "column", gap: "32px", width: "100%" }}>
-          {/* Sidebar Header / Logo */}
+          {/* Logo Header */}
           <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "0 8px", minHeight: "42px", justifyContent: isSidebarCollapsed ? "center" : "flex-start" }}>
             <button
               type="button"
@@ -143,7 +142,6 @@ const Layout = ({ children }) => {
               </div>
             )}
 
-            {/* Textos do Logo escondidos se collapsed */}
             {!isSidebarCollapsed && (
               <div>
                 <h2 className="logo-title" style={{ fontSize: "15px", margin: 0, fontWeight: "700", color: "#064e3b" }}>
@@ -156,7 +154,7 @@ const Layout = ({ children }) => {
             )}
           </div>
 
-          {/* Navigation Links */}
+          {/* Nav */}
           <nav style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
             {!isSidebarCollapsed && (
               <p
@@ -253,9 +251,8 @@ const Layout = ({ children }) => {
           </nav>
         </div>
 
-        {/* Sidebar Footer */}
+        {/* Footer */}
         <div style={{ padding: "0 8px", width: "100%", display: "flex", flexDirection: "column", gap: "8px" }}>
-          {/* Status */}
           <div
             style={{
               display: "flex",
@@ -286,7 +283,6 @@ const Layout = ({ children }) => {
             )}
           </div>
 
-          {/* Logout */}
           <button
             onClick={handleLogout}
             style={{
@@ -305,8 +301,6 @@ const Layout = ({ children }) => {
               fontFamily: "'Inter', sans-serif",
               transition: "all 0.2s ease",
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(239,68,68,0.06)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
           >
             <LogOut size={16} style={{ color: "#dc2626", flexShrink: 0 }} />
             {!isSidebarCollapsed && (
@@ -316,11 +310,17 @@ const Layout = ({ children }) => {
         </div>
       </aside>
 
-      {/* Spacer to push main content layout dynamically */}
-      <div className={`sidebar-spacer ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`} />
-
       {/* Main Content Pane */}
-      <div className="main-content">
+      <div 
+        className="main-content" 
+        style={{ 
+          flex: 1, 
+          display: "flex", 
+          flexDirection: "column", 
+          minWidth: 0,
+          padding: "24px"
+        }}
+      >
         {/* Top Navbar */}
         <header
           style={{
@@ -329,14 +329,11 @@ const Layout = ({ children }) => {
             justifyContent: "space-between",
             paddingBottom: "16px",
             borderBottom: "1px solid rgba(16, 185, 129, 0.08)",
-            width: "100%"
+            width: "100%",
+            marginBottom: "24px"
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "12px", flex: 1 }}>
-            {/* Hamburger menu toggle (Mobile only) */}
-
-
-            {/* Search Input */}
             <div style={{ position: "relative", width: "100%", maxWidth: "400px" }}>
               <Search
                 size={18}
@@ -361,15 +358,11 @@ const Layout = ({ children }) => {
                   outline: "none",
                   transition: "all 0.2s ease"
                 }}
-                onFocus={(e) => (e.target.style.borderColor = "#10b981")}
-                onBlur={(e) => (e.target.style.borderColor = "rgba(16, 185, 129, 0.1)")}
               />
             </div>
           </div>
 
-          {/* Right Header Controls */}
           <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-            {/* Notification Bell */}
             <Link
               to="/notificacoes"
               style={{
@@ -382,7 +375,6 @@ const Layout = ({ children }) => {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                boxShadow: "var(--shadow-sm)",
                 transition: "all 0.2s ease"
               }}
               className="hover-scale"
@@ -401,7 +393,6 @@ const Layout = ({ children }) => {
               />
             </Link>
 
-            {/* Profile Avatar */}
             <div
               style={{
                 width: "40px",
@@ -423,19 +414,10 @@ const Layout = ({ children }) => {
         </header>
 
         {/* Page Children Container */}
-        <main style={{ flex: 1, display: "flex", flexDirection: "column", width: "100%" }}>
+        <main style={{ flex: 1 }}>
           {children}
         </main>
       </div>
-
-      {/* Extra styles for media queries inside Layout */}
-      <style>{`
-        @media (max-width: 768px) {
-          header {
-            padding: 8px 0;
-          }
-        }
-      `}</style>
     </div>
   );
 };

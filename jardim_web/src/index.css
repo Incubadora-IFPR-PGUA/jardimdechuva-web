@@ -57,11 +57,6 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-#root {
-  display: block;
-  min-height: 100vh;
-  width: 100%;
-}
 
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading);
@@ -72,67 +67,6 @@ h1, h2, h3, h4, h5, h6 {
 a { text-decoration: none; color: inherit; }
 button { font-family: var(--font-sans); cursor: pointer; }
 input, select, textarea { font-family: var(--font-sans); }
-
-/* ============================================================
-   LAYOUT
-   ============================================================ */
-.app-layout {
-  display: flex;
-  width: 100%;
-  min-height: 100vh;
-}
-
-.sidebar-container {
-  width: 240px;
-  background: var(--bg-sidebar);
-  border-right: 1px solid var(--border-soft);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 24px 16px;
-  position: fixed;
-  top: 0;
-  left: 0;
-  height: 100vh;
-  z-index: 100;
-  transition: width 0.3s ease, transform 0.3s ease, padding 0.3s ease;
-}
-
-.sidebar-container.sidebar-collapsed {
-  width: 80px !important;
-  padding: 24px 12px !important;
-}
-.sidebar-container.sidebar-collapsed .sidebar-label,
-.sidebar-container.sidebar-collapsed .logo-subtitle,
-.sidebar-container.sidebar-collapsed .logo-title,
-.sidebar-container.sidebar-collapsed .sidebar-footer-text {
-  display: none !important;
-}
-.sidebar-container.sidebar-collapsed .sidebar-link {
-  justify-content: center !important;
-  padding: 12px !important;
-}
-
-.sidebar-spacer {
-  width: 240px;
-  flex-shrink: 0;
-  transition: width 0.3s ease;
-}
-.sidebar-spacer.sidebar-collapsed {
-  width: 80px !important;
-}
-
-.main-content {
-  flex: 1;
-  min-width: 0;
-  padding: 24px 36px;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  min-height: 100vh;
-  background-color: var(--bg-app);
-  transition: padding 0.3s ease;
-}
 
 /* ============================================================
    GLASS PANEL
@@ -372,68 +306,6 @@ input:checked + .slider::before { transform: translateX(20px); }
   display: none !important;
 }
 
-/* ============================================================
-   RESPONSIVE
-   ============================================================ */
-@media (max-width: 1280px) {
-  .main-content { padding: 20px 24px; }
-}
-
-@media (max-width: 1024px) {
-  /* Em tablets, a barra se ajusta, mas não forçamos minimização sem a classe */
-  .main-content {
-    padding: 20px;
-  }
-}
-
-@media (max-width: 768px) {
-  .app-layout { flex-direction: column; }
-  
-  .sidebar-container {
-    width: 260px;
-    height: 100vh;
-    padding: 24px 16px;
-    position: fixed;
-    top: 0;
-    left: 0;
-    transform: translateX(-100%); /* Escondido fora da tela */
-    border-right: 1px solid var(--border-soft);
-    border-bottom: none;
-    z-index: 105;
-  }
-  
-  .sidebar-container.mobile-open {
-    transform: translateX(0); /* Mostra a sidebar */
-  }
-
-  /* Restaura as labels na sidebar móvel aberta */
-  .sidebar-container.mobile-open .sidebar-label,
-  .sidebar-container.mobile-open .logo-subtitle,
-  .sidebar-container.mobile-open .logo-title,
-  .sidebar-container.mobile-open .sidebar-footer-text {
-    display: block;
-  }
-  .sidebar-container.mobile-open .sidebar-link {
-    justify-content: flex-start;
-    padding: 12px 16px !important;
-  }
-
-  .mobile-header-btn {
-    display: flex !important;
-  }
-
-  .sidebar-spacer {
-    display: none !important;
-  }
-
-  .main-content {
-    padding: 16px;
-  }
-
-  .main-content.sidebar-collapsed-content {
-    margin-left: 0 !important;
-  }
-}
 
 /* ============================================================
    LOGIN PAGE — Input dark theme placeholders & spin keyframe
