@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import { toast } from "react-toastify";
 import { sensorService, atuadorService, leituraService, alertaService } from "../../services/api";
+import { useAuth } from "../../context/AuthContext";
 import { parseLeituras } from "../../utils/sensorJsonParser";
 import s from "./Dashboard.module.css";
 
@@ -97,13 +98,33 @@ const timeAgo = (dateStr) => {
   return `${Math.floor(diff / 86400)}d atrás`;
 };
 
-const generateSoilData = () => {
-  const now = new Date();
-  return Array.from({ length: 24 }, (_, i) => {
-    const h = new Date(now - (23 - i) * 3600000).getHours();
-    const v = Math.round(58 + 14 * Math.sin((h - 14) * Math.PI / 12) + (Math.random() * 4 - 2));
-    return { name: `${h}h`, umidade: Math.max(30, Math.min(95, v)) };
+// Mesmo critério do backend (MqttService) para reconhecer o sensor de umidade do solo
+const ehSensorSolo = (sensor) =>
+  (sensor.tipoSensor?.nome || "").toLowerCase().includes("solo") ||
+  (sensor.nome || "").toLowerCase().includes("solo");
+
+// Média por hora das leituras de solo das últimas 24h (horas sem leitura ficam de fora)
+const agruparSoloPorHora = (leituras) => {
+  const limite = Date.now() - 24 * 3600000;
+  const horas = new Map();
+  leituras.forEach((l) => {
+    const data = new Date(l.dataHora || l.data_hora);
+    if (Number.isNaN(data.getTime()) || data.getTime() < limite) return;
+    const json = l.valorJson || l.valor_json || {};
+    const v = Number(json.solo ?? json.umidade ?? l.valor);
+    if (!Number.isFinite(v)) return;
+    data.setMinutes(0, 0, 0);
+    const chave = data.getTime();
+    const h = horas.get(chave) || { soma: 0, n: 0 };
+    h.soma += v; h.n += 1;
+    horas.set(chave, h);
   });
+  return [...horas.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([chave, { soma, n }]) => ({
+      name: `${new Date(chave).getHours()}h`,
+      umidade: Math.round((soma / n) * 10) / 10,
+    }));
 };
 
 /* ─── Component ───────────────────────────────────────────── */
@@ -118,7 +139,13 @@ const DashboardPage = () => {
   const [refreshing, setRefreshing]         = useState(false);
   const [error, setError]                   = useState(null);
   const [activeChartTab, setActiveChartTab] = useState("solo");
-  const [soilData] = useState(generateSoilData);
+  const [leiturasSolo, setLeiturasSolo]     = useState([]);
+  const [sensorSoloNome, setSensorSoloNome] = useState(null);
+  const { can } = useAuth();
+  const podeAcionar = can("atuadores.acionar");
+  // O atalho de acionamento rápido aparece só para administrador/desenvolvedor.
+  // Usuário continua podendo acionar pela tela de Atuadores.
+  const mostrarAtalhoAtuadores = can("atuadores.gerenciar") && podeAcionar;
 
   const loadData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true); else setRefreshing(true);
@@ -144,27 +171,30 @@ const DashboardPage = () => {
         pares.forEach(([id, l]) => { mapa[id] = l; });
         setUltimasLeituras(mapa);
       });
+      // Gráfico de umidade do solo: leituras reais do primeiro sensor de solo
+      const sensorSolo = lista.find(ehSensorSolo);
+      setSensorSoloNome(sensorSolo?.nome || null);
+      if (sensorSolo) {
+        leituraService.listarPorSensor(sensorSolo.idSensor || sensorSolo.id_sensor, { limit: 500 })
+          .then((r) => setLeiturasSolo(r.data || []))
+          .catch(() => {}); // mantém as últimas leituras recebidas
+      } else {
+        setLeiturasSolo([]);
+      }
     }
     if (chuvaRes.status === "fulfilled") setLeiturasChuva(chuvaRes.value.data || []);
     if (climaRes.status === "fulfilled") setLeiturasClima(climaRes.value.data || []);
     if (alertRes.status === "fulfilled") setAlertas(alertRes.value.data || []);
-    if (atRes.status === "fulfilled" && (atRes.value.data || []).length > 0) {
-      setAtuadores(atRes.value.data.map((a) => ({
+    // Se a listagem falhar, mantém a última lista recebida. Nunca exibir atuadores fictícios:
+    // o switch deles mandaria comando de verdade para o atuador real com o mesmo id.
+    if (atRes.status === "fulfilled") {
+      setAtuadores((atRes.value.data || []).map((a) => ({
         id: a.idAtuador || a.id_atuador,
         nome: a.nome || `Atuador #${a.idAtuador}`,
         descricao: a.localizacao || a.mqttTopicoComando || "Atuador registrado",
         topico: a.mqttTopicoComando || a.mqtt_topico_comando,
-        estado: ["LIGADO","ON","true",true].includes(a.estadoAtual ?? a.estado_atual),
-        modo: a.mqttTopicoComando ? "Automático" : "Manual",
+        estado: ["LIGADO","ON","TRUE","1"].includes(String(a.estadoAtual ?? a.estado_atual ?? "").toUpperCase()),
       })));
-    } else if (atRes.status === "rejected") {
-      setAtuadores([
-        { id:1, nome:"Válvula Solenoide", descricao:"Controle de entrada/saída",      modo:"Automático", estado:false },
-        { id:2, nome:"Bomba d'Água",      descricao:"Reaproveitamento e circulação",  modo:"Automático", estado:true  },
-        { id:3, nome:"Relé Principal",    descricao:"Comutação de cargas elétricas",  modo:"Manual",     estado:true  },
-        { id:4, nome:"Servo Motor",       descricao:"Direcionamento de fluxo",        modo:"Automático", estado:false },
-        { id:5, nome:"LED / Display",     descricao:"Status visual",                  modo:"Manual",     estado:true  },
-      ]);
     }
     setError(results.some(r => r.status === "rejected") ? "Alguns dados não puderam ser carregados. Exibindo valores em cache." : null);
     setLoading(false);
@@ -178,7 +208,7 @@ const DashboardPage = () => {
     setAtuadores(prev => prev.map(a => a.id === id ? { ...a, estado: next } : a));
     const label = atuadores.find(a => a.id === id)?.nome || "Atuador";
     try {
-      await atuadorService.atualizar(id, { estadoAtual: next ? "LIGADO" : "DESLIGADO" });
+      await atuadorService.acionar(id, next ? "ligar" : "desligar");
       toast.success(`${label} → ${next ? "LIGADO" : "DESLIGADO"}`);
     } catch {
       setAtuadores(prev => prev.map(a => a.id === id ? { ...a, estado: current } : a));
@@ -186,11 +216,26 @@ const DashboardPage = () => {
     }
   };
 
+  const soilChartData  = agruparSoloPorHora(leiturasSolo);
   const rainChartData  = [...leiturasChuva].reverse().map(l => ({ name: new Date(l.dataHora).toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" }), chuva: l.valor ?? 0 }));
   const climaChartData = [...leiturasClima].reverse().map(l => ({ name: new Date(l.dataHora).toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" }), umidade: l.humidity ?? 0, temperatura: l.temperature ?? 0 }));
-  const totalSensores  = sensores.length;
-  const atoresAtivos   = atuadores.filter(a => a.estado).length;
-  const eficiencia     = totalSensores > 0 ? Math.round(90 + (atoresAtivos / Math.max(atuadores.length, 1)) * 6) : 94;
+  const totalSensores    = sensores.length;
+  const statusSensor     = (sn) => sn.status_conexao_atual || sn.statusConexaoAtual || sn.statusConexao || "offline";
+  const sensoresOnline   = sensores.filter(sn => statusSensor(sn) === "online").length;
+  const atuadoresLigados = atuadores.filter(a => a.estado).length;
+  const ultimaLeituraGeral = sensores
+    .map(sn => sn.ultimaLeituraEm || sn.ultima_leitura_em)
+    .filter(Boolean)
+    .sort((a, b) => new Date(b) - new Date(a))[0];
+
+  // Situação real do sistema, a partir da conexão dos sensores
+  const statusSistema = totalSensores === 0
+    ? { classe: "badge-gray",    dot: "offline", texto: "Nenhum sensor cadastrado" }
+    : sensoresOnline === totalSensores
+      ? { classe: "badge-success", dot: "online",  texto: "Todos os sensores online" }
+      : sensoresOnline === 0
+        ? { classe: "badge-danger",  dot: "offline", texto: "Nenhum sensor enviando dados" }
+        : { classe: "badge-warning", dot: "warning", texto: `${totalSensores - sensoresOnline} sensor(es) sem comunicação` };
 
   if (loading) {
     return (
@@ -208,9 +253,9 @@ const DashboardPage = () => {
       {/* ── Banner ── */}
       <div className={`glass-panel ${s.banner}`}>
         <div className={s.bannerInfo}>
-          <span className="badge badge-success" style={{ marginBottom: 10, display: "inline-flex" }}>
-            <span className="status-dot online" style={{ width: 6, height: 6 }} />
-            Sistema operando em modo automático
+          <span className={`badge ${statusSistema.classe}`} style={{ marginBottom: 10, display: "inline-flex" }}>
+            <span className={`status-dot ${statusSistema.dot}`} style={{ width: 6, height: 6 }} />
+            {statusSistema.texto}
           </span>
           <h1 className={s.bannerTitle}>Gestão hídrica urbana inteligente</h1>
           <p className={s.bannerDesc}>
@@ -219,9 +264,9 @@ const DashboardPage = () => {
         </div>
         <div className={s.kpiRow}>
           {[
-            { icon: <Droplet size={18} />, val: `${eficiencia}%`, label: "EFICIÊNCIA" },
-            { icon: <Cpu size={18} />,     val: `${totalSensores}/${totalSensores}`, label: "SENSORES" },
-            { icon: <Sliders size={18} />, val: atoresAtivos, label: "ATUADORES" },
+            { icon: <Cpu size={18} />,     val: `${sensoresOnline}/${totalSensores}`, label: "SENSORES ONLINE" },
+            { icon: <Sliders size={18} />, val: `${atuadoresLigados}/${atuadores.length}`, label: "ATUADORES LIGADOS" },
+            { icon: <Clock size={18} />,   val: horaRelativa(ultimaLeituraGeral) || "—", label: "ÚLTIMA LEITURA" },
           ].map(({ icon, val, label }) => (
             <div key={label} className={`glass-panel ${s.kpiCard}`}>
               <span className={s.kpiIcon}>{icon}</span>
@@ -336,13 +381,17 @@ const DashboardPage = () => {
       </div>
 
       {/* ── Chart + Atuadores ── */}
-      <div className={s.dashGrid}>
+      <div className={mostrarAtalhoAtuadores ? s.dashGrid : undefined}>
         {/* Chart */}
         <div className={`glass-panel ${s.chartPanel}`}>
           <div className={s.chartHeader}>
             <div>
               <h2 className={s.chartTitle}>Tendências ambientais (24h)</h2>
-              <p className={s.chartSub}>Umidade do solo, chuva e temperatura</p>
+              <p className={s.chartSub}>
+                {activeChartTab === "solo" && sensorSoloNome
+                  ? `Umidade do solo · ${sensorSoloNome} · média por hora`
+                  : "Umidade do solo, chuva e temperatura"}
+              </p>
             </div>
             <div className={s.chartHeaderRight}>
               <span className="badge badge-success" style={{ fontSize: 10 }}>
@@ -360,7 +409,8 @@ const DashboardPage = () => {
           <div style={{ width:"100%", height:240 }}>
             <ResponsiveContainer width="100%" height="100%">
               {activeChartTab === "solo" ? (
-                <AreaChart data={soilData} margin={{ top:5, right:8, left:-22, bottom:0 }}>
+                soilChartData.length > 0 ? (
+                <AreaChart data={soilChartData} margin={{ top:5, right:8, left:-22, bottom:0 }}>
                   <defs>
                     <linearGradient id="soilGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%"  stopColor="#10b981" stopOpacity={0.25}/>
@@ -369,10 +419,13 @@ const DashboardPage = () => {
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis dataKey="name" stroke="#c1c9d2" fontSize={10} tickLine={false} />
-                  <YAxis stroke="#c1c9d2" fontSize={10} tickLine={false} domain={[20,100]} />
+                  <YAxis stroke="#c1c9d2" fontSize={10} tickLine={false} domain={[0,100]} />
                   <Tooltip contentStyle={tooltipStyle} labelStyle={{ fontWeight:700, color:"#064e3b" }} />
-                  <Area type="monotone" dataKey="umidade" name="Umidade (%)" stroke="#10b981" strokeWidth={2.5} fill="url(#soilGrad)" />
+                  <Area type="monotone" dataKey="umidade" name="Umidade do solo (%)" stroke="#10b981" strokeWidth={2.5} fill="url(#soilGrad)" />
                 </AreaChart>
+                ) : <div className={s.chartEmpty}>
+                  {sensorSoloNome ? "Sem leituras de umidade do solo nas últimas 24h." : "Nenhum sensor de umidade do solo cadastrado."}
+                </div>
               ) : activeChartTab === "chuva" ? (
                 rainChartData.length > 0 ? (
                   <AreaChart data={rainChartData} margin={{ top:5, right:8, left:-22, bottom:0 }}>
@@ -414,16 +467,22 @@ const DashboardPage = () => {
           </div>
         </div>
 
-        {/* Atuadores */}
+        {/* Atuadores (atalho de acionamento rápido, só administrador/desenvolvedor) */}
+        {mostrarAtalhoAtuadores && (
         <div className={`glass-panel ${s.actuatorsPanel}`}>
           <div className={s.sectionHeader}>
             <div>
               <h2 className={s.chartTitle}>Atuadores</h2>
-              <p className={s.chartSub}>Controle automático e manual</p>
+              <p className={s.chartSub}>Acionamento rápido</p>
             </div>
             <Sliders size={16} color="#9ca3af" />
           </div>
           <div className={s.actuatorsList}>
+            {atuadores.length === 0 && (
+              <p className={s.actuatorDesc} style={{ textAlign: "center", padding: "12px 0" }}>
+                Nenhum atuador cadastrado.
+              </p>
+            )}
             {atuadores.map((a) => (
               <div key={a.id} className={`${s.actuatorItem} ${a.estado ? s.actuatorItemOn : s.actuatorItemOff}`}>
                 <div className={s.actuatorLeft}>
@@ -433,9 +492,6 @@ const DashboardPage = () => {
                   <div>
                     <div className={s.actuatorNameRow}>
                       <span className={s.actuatorName}>{a.nome}</span>
-                      <span className={`badge ${a.modo === "Automático" ? "badge-success" : "badge-warning"}`} style={{ fontSize:9, padding:"2px 6px" }}>
-                        {a.modo}
-                      </span>
                     </div>
                     <p className={s.actuatorDesc}>{a.descricao}</p>
                   </div>
@@ -451,10 +507,11 @@ const DashboardPage = () => {
             <Info size={18} style={{ color:"#059669", flexShrink:0, marginTop:1 }} />
             <div>
               <span className={s.automationTitle}>Automação ativa</span>
-              <p className={s.automationDesc}>Irrigação iniciará automaticamente se a umidade do solo cair abaixo de 40% durante o período noturno.</p>
+              <p className={s.automationDesc}>A mini bomba liga quando o sensor de umidade do solo indicar "seco" e desliga quando voltar a "úmido" ou "encharcado". Você também pode ligá-la ou desligá-la pela tela de Atuadores.</p>
             </div>
           </div>
         </div>
+        )}
       </div>
 
       {/* ── Alertas ── */}

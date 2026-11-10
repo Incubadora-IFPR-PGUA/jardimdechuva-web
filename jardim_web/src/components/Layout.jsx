@@ -12,16 +12,18 @@ import {
   LogOut,
   Droplet,
   Users,
+  Shield,
   Building,
   Server,
   Settings
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { ROTULO_PAPEL } from "../utils/papeis";
 
 const Layout = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, can, perfil } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
@@ -38,29 +40,26 @@ const Layout = ({ children }) => {
     }
   };
 
+  // Itens com `permissao` só aparecem para quem a tem (perfil calculado pelo backend)
+  const podeVer = (item) => !item.permissao || can(item.permissao);
+
   const menuItems = [
     { path: "/", label: "Dashboard", icon: LayoutDashboard },
-    { path: "/jardins", label: "Jardins", icon: Trees },
-    { path: "/sensores", label: "Sensores", icon: Cpu },
-    { path: "/atuadores", label: "Atuadores", icon: Sliders },
-    { path: "/historico", label: "Histórico", icon: History },
-    { path: "/notificacoes", label: "Notificações", icon: Bell }
-  ];
+    { path: "/jardins", label: "Jardins", icon: Trees, permissao: "jardins.ver" },
+    { path: "/sensores", label: "Sensores", icon: Cpu, permissao: "sensores.ver" },
+    { path: "/atuadores", label: "Atuadores", icon: Sliders, permissao: "atuadores.ver" },
+    { path: "/historico", label: "Histórico", icon: History, permissao: "leituras.ver" },
+    { path: "/notificacoes", label: "Notificações", icon: Bell, permissao: "alertas.ver" }
+  ].filter(podeVer);
 
-  const isPlatformAdmin = user?.cargos?.some(c => c.id_cargo <= 2 || c.idCargo <= 2) || 
-                          user?.organizacoes?.some(o => o.id_organizacao === 1 || o.idOrganizacao === 1);
-
-  const adminItems = [];
-  
-  if (isPlatformAdmin || user?.cargos?.some(c => c.id_cargo <= 3 || c.idCargo <= 3)) {
-    adminItems.push({ path: "/usuarios", label: "Usuários", icon: Users });
-  }
-
-  if (isPlatformAdmin) {
-    adminItems.push({ path: "/organizacoes", label: "Organizações", icon: Building });
-    adminItems.push({ path: "/dispositivos", label: "Dispositivos", icon: Server });
-    adminItems.push({ path: "/tipos-sensores", label: "Tipos Sensores", icon: Settings });
-  }
+  const adminItems = [
+    { path: "/usuarios", label: "Usuários", icon: Users, permissao: "usuarios.gerenciar" },
+    { path: "/cargos", label: "Cargos", icon: Shield, permissao: "cargos.gerenciar" },
+    { path: "/organizacoes", label: "Organizações", icon: Building, permissao: "organizacoes.gerenciar" },
+    { path: "/dispositivos", label: "Dispositivos", icon: Server, permissao: "dispositivos.gerenciar" },
+    { path: "/tipos-dispositivos", label: "Tipos Dispositivos", icon: Cpu, permissao: "tipos.gerenciar" },
+    { path: "/tipos-sensores", label: "Tipos Sensores", icon: Settings, permissao: "tipos.gerenciar" }
+  ].filter(podeVer);
 
   const currentPath = location.pathname;
 
@@ -305,6 +304,11 @@ const Layout = ({ children }) => {
             <LogOut size={16} style={{ color: "#dc2626", flexShrink: 0 }} />
             {!isSidebarCollapsed && (
               <span className="sidebar-footer-text">{user?.nome?.split(" ")[0] ?? "Sair"}</span>
+            )}
+            {!isSidebarCollapsed && perfil?.papel && (
+              <span className="sidebar-footer-text" style={{ marginLeft: "auto", fontSize: "11px", fontWeight: "600", color: "#6b7280" }}>
+                {ROTULO_PAPEL[perfil.papel] ?? perfil.papel}
+              </span>
             )}
           </button>
         </div>

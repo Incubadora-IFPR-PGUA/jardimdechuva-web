@@ -1,65 +1,83 @@
-import React, { useState, useEffect } from "react";
-import { Bell, Info, AlertTriangle, ShieldAlert, Trash2, Plus, RefreshCw, Send, Radio, Calendar } from "lucide-react";
-import { alertaService, sensorService } from "../services/api";
+import React, { useState, useEffect, useMemo } from "react";
+import { Bell, Info, AlertTriangle, ShieldAlert, Trash2, Plus, RefreshCw, Radio, Calendar, Building } from "lucide-react";
+import { api, alertaService, sensorService } from "../services/api";
+import { useAuth } from "../context/AuthContext";
 import { toast } from "react-toastify";
 
+// Organização do sensor (o /sensores traz dispositivo.jardim)
+const orgDoSensor = (s) => {
+  const jardim = s?.dispositivo?.jardim;
+  return Number(jardim?.id_organizacao ?? jardim?.idOrganizacao ?? 0) || null;
+};
+
 const NotificacoesPage = () => {
+  const { can, perfil } = useAuth();
+  const podeGerenciar = can("alertas.gerenciar");
+  const ehDev = perfil?.papel === "desenvolvedor";
   const [alertas, setAlertas] = useState([]);
   const [sensores, setSensores] = useState([]);
+  const [organizacoesDev, setOrganizacoesDev] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filtroNivel, setFiltroNivel] = useState("TODOS");
 
-  // Form states for creating a test alert
+  // Formulário de novo alerta
   const [showForm, setShowForm] = useState(false);
-  const [idSensor, setIdSensor] = useState("1");
+  const [idOrganizacao, setIdOrganizacao] = useState("");
+  const [idSensor, setIdSensor] = useState("");
   const [mensagem, setMensagem] = useState("");
   const [nivel, setNivel] = useState("medio"); // baixo, medio, alto
   const [submitting, setSubmitting] = useState(false);
 
-  // Default simulated alerts if database has none
-  const defaultAlertas = [
-    { id_alerta: 1, id_sensor: 3, mensagem: "Umidade do solo crítica (34.2%) detectada no canteiro A. Iniciando irrigação automatizada.", nivel: "alto", created_at: new Date(Date.now() - 30 * 60000).toISOString() },
-    { id_alerta: 2, id_sensor: 2, mensagem: "Precipitação de chuva intensa detectada (8.6 mm/h). Desligando bombas de recirculação por segurança.", nivel: "medio", created_at: new Date(Date.now() - 120 * 60000).toISOString() },
-    { id_alerta: 3, id_sensor: 1, mensagem: "Válvula solenoide ativada pelo controle automático às 15:30.", nivel: "baixo", created_at: new Date(Date.now() - 180 * 60000).toISOString() },
-    { id_alerta: 4, id_sensor: 1, mensagem: "Bomba d'água desativada pelo painel de controle manual.", nivel: "baixo", created_at: new Date(Date.now() - 240 * 60000).toISOString() }
-  ];
+  // Organizações que podem receber o alerta: todas para o desenvolvedor; para os demais,
+  // as organizações em que o cargo permite gerenciar alertas (o backend valida de novo)
+  const organizacoesAlvo = useMemo(() => {
+    if (ehDev) {
+      return organizacoesDev.map((o) => ({ id: Number(o.id_organizacao ?? o.idOrganizacao), nome: o.nome }));
+    }
+    return (perfil?.organizacoes || [])
+      .filter((o) => o.permissoes?.includes("alertas.gerenciar"))
+      .map((o) => ({ id: Number(o.idOrganizacao), nome: o.nome }));
+  }, [ehDev, organizacoesDev, perfil]);
+
+  // Uma organização só: já vem escolhida
+  const orgEscolhida = organizacoesAlvo.length === 1 ? String(organizacoesAlvo[0].id) : idOrganizacao;
+
+  // Sensores da organização escolhida
+  const sensoresDaOrg = useMemo(
+    () => sensores.filter((s) => orgEscolhida && orgDoSensor(s) === Number(orgEscolhida)),
+    [sensores, orgEscolhida]
+  );
+
+  useEffect(() => {
+    if (!ehDev || !podeGerenciar) return;
+    api.get("/organizacoes", { params: { limit: 200 } })
+      .then((res) => setOrganizacoesDev(res.data?.data?.data || res.data?.data || []))
+      .catch(() => setOrganizacoesDev([]));
+  }, [ehDev, podeGerenciar]);
 
   const fetchAlertas = async (isSilent = false) => {
     if (!isSilent) setLoading(true);
     else setRefreshing(true);
 
     try {
-      // 1. Fetch sensors for the select input
+      // 1. Sensores para o formulário (já vêm só os das organizações do usuário)
       const sensRes = await sensorService.listar();
       setSensores(sensRes.data || []);
 
-      // 2. Fetch alerts
+      // 2. Fetch alerts (só os registrados no banco)
       const res = await alertaService.listar();
-      const loaded = res.data || [];
-
-      if (loaded.length > 0) {
-        // Map real alerts from database
-        const realMapped = loaded.map(al => ({
-          ...al,
-          id_alerta: al.id_alerta || al.id,
-          mensagem: al.mensagem || "Alerta registrado no sistema",
-          nivel: al.nivel || "medio",
-          created_at: al.created_at || al.createdAt || new Date().toISOString()
-        }));
-
-        // Merge defaults to show a complete list in case there are few
-        const extras = defaultAlertas.filter(def => 
-          !realMapped.some(real => real.mensagem === def.mensagem)
-        );
-
-        setAlertas([...realMapped, ...extras]);
-      } else {
-        setAlertas(defaultAlertas);
-      }
+      setAlertas((res.data || []).map(al => ({
+        ...al,
+        id_alerta: al.id_alerta || al.id,
+        mensagem: al.mensagem || "Alerta registrado no sistema",
+        nivel: al.nivel || "medio",
+        // Na tabela alertas a data é "criado_em"
+        created_at: al.criado_em || al.criadoEm || al.created_at
+      })));
     } catch (err) {
       console.error("Erro ao listar alertas:", err);
-      setAlertas(defaultAlertas);
+      toast.error("Não foi possível carregar as notificações.");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -71,14 +89,13 @@ const NotificacoesPage = () => {
   }, []);
 
   const handleDismiss = async (id) => {
-    // Optimistic Update
-    setAlertas(prev => prev.filter(al => al.id_alerta !== id));
-    toast.success("Notificação arquivada/resolvida.");
-
     try {
       await alertaService.deletar(id);
+      setAlertas(prev => prev.filter(al => al.id_alerta !== id));
+      toast.success("Notificação arquivada/resolvida.");
     } catch (err) {
-      console.warn("Falha ao deletar alerta no banco de dados, excluído apenas localmente.");
+      console.error("Erro ao arquivar alerta:", err);
+      toast.error("Não foi possível arquivar a notificação.");
     }
   };
 
@@ -88,36 +105,31 @@ const NotificacoesPage = () => {
       toast.warn("Por favor, informe a mensagem do alerta.");
       return;
     }
+    if (!orgEscolhida) {
+      toast.warn("Escolha a organização que vai receber o alerta.");
+      return;
+    }
 
     setSubmitting(true);
     try {
       const payload = {
-        idSensor: Number(idSensor),
+        idOrganizacao: Number(orgEscolhida),
+        idSensor: idSensor ? Number(idSensor) : null,
         mensagem,
         nivel
       };
 
       await alertaService.criar(payload);
-      toast.success("Alerta registrado e propagado!");
-      
+      const nomeOrg = organizacoesAlvo.find((o) => o.id === Number(orgEscolhida))?.nome;
+      toast.success(`Alerta enviado para ${nomeOrg || "a organização"}.`);
+
       setMensagem("");
+      setIdSensor("");
       setShowForm(false);
       fetchAlertas(true);
     } catch (err) {
       console.error("Erro ao cadastrar alerta:", err);
-      // Fallback: add locally to state
-      const newLocalAlerta = {
-        id_alerta: Date.now(),
-        id_sensor: Number(idSensor),
-        mensagem,
-        nivel,
-        created_at: new Date().toISOString()
-      };
-      setAlertas(prev => [newLocalAlerta, ...prev]);
-      toast.success("Alerta registrado localmente (Simulado)!");
-      
-      setMensagem("");
-      setShowForm(false);
+      toast.error(err.response?.data?.message || "Não foi possível registrar o alerta.");
     } finally {
       setSubmitting(false);
     }
@@ -199,36 +211,65 @@ const NotificacoesPage = () => {
             Atualizar
           </button>
 
-          <button
-            onClick={() => setShowForm(!showForm)}
-            style={{
-              background: "linear-gradient(135deg, #10b981, #059669)",
-              border: "none",
-              borderRadius: "10px",
-              padding: "10px 18px",
-              fontSize: "14px",
-              fontWeight: "600",
-              color: "white",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              cursor: "pointer",
-              boxShadow: "var(--shadow-md)"
-            }}
-            className="hover-scale"
-          >
-            <Plus size={16} />
-            Gerar Alerta
-          </button>
+          {podeGerenciar && (
+            <button
+              onClick={() => setShowForm(!showForm)}
+              style={{
+                background: "linear-gradient(135deg, #10b981, #059669)",
+                border: "none",
+                borderRadius: "10px",
+                padding: "10px 18px",
+                fontSize: "14px",
+                fontWeight: "600",
+                color: "white",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                cursor: "pointer",
+                boxShadow: "var(--shadow-md)"
+              }}
+              className="hover-scale"
+            >
+              <Plus size={16} />
+              Gerar Alerta
+            </button>
+          )}
         </div>
       </div>
 
       {/* Simulator / Generator Form */}
       {showForm && (
         <div className="glass-panel" style={{ padding: "24px", background: "white", border: "1px solid rgba(16, 185, 129, 0.15)" }}>
-          <h2 style={{ fontSize: "18px", marginBottom: "16px", color: "#064e3b" }}>Simulador de Alertas do Jardim</h2>
+          <h2 style={{ fontSize: "18px", marginBottom: "4px", color: "#064e3b" }}>Lançar alerta</h2>
+          <p style={{ fontSize: "13px", color: "#6b7280", margin: "0 0 16px" }}>
+            O alerta aparece só para os usuários da organização escolhida.
+          </p>
           <form onSubmit={handleTriggerAlert} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
-            
+
+            {organizacoesAlvo.length > 1 ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                <label style={{ fontSize: "12px", fontWeight: "600", color: "#4b5563" }}>Organização *</label>
+                <select
+                  value={idOrganizacao}
+                  onChange={(e) => { setIdOrganizacao(e.target.value); setIdSensor(""); }}
+                  required
+                  style={{ padding: "10px", borderRadius: "8px", border: "1px solid rgba(16,185,129,0.2)", outline: "none", background: "white" }}
+                >
+                  <option value="">Selecione a organização...</option>
+                  {organizacoesAlvo.map((o) => (
+                    <option key={o.id} value={o.id}>{o.nome}</option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                <label style={{ fontSize: "12px", fontWeight: "600", color: "#4b5563" }}>Organização</label>
+                <div style={{ padding: "10px", borderRadius: "8px", border: "1px solid rgba(16,185,129,0.2)", background: "#f9fafb", fontSize: "14px", color: "#374151" }}>
+                  {organizacoesAlvo[0]?.nome || "Nenhuma organização disponível"}
+                </div>
+              </div>
+            )}
+
             <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
               <label style={{ fontSize: "12px", fontWeight: "600", color: "#4b5563" }}>Nível de Gravidade</label>
               <select
@@ -243,25 +284,19 @@ const NotificacoesPage = () => {
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-              <label style={{ fontSize: "12px", fontWeight: "600", color: "#4b5563" }}>Sensor Relacionado</label>
+              <label style={{ fontSize: "12px", fontWeight: "600", color: "#4b5563" }}>Sensor relacionado (opcional)</label>
               <select
                 value={idSensor}
                 onChange={(e) => setIdSensor(e.target.value)}
+                disabled={!orgEscolhida}
                 style={{ padding: "10px", borderRadius: "8px", border: "1px solid rgba(16,185,129,0.2)", outline: "none", background: "white" }}
               >
-                {sensores.length > 0 ? (
-                  sensores.map(s => (
-                    <option key={s.id_sensor} value={s.id_sensor}>
-                      {s.nome} (ID #{s.id_sensor})
-                    </option>
-                  ))
-                ) : (
-                  <>
-                    <option value="1">Sensor de Chuva (ID #1)</option>
-                    <option value="2">DHT22 Clima (ID #2)</option>
-                    <option value="3">Umidade do Solo (ID #3)</option>
-                  </>
-                )}
+                <option value="">Nenhum — alerta para a organização toda</option>
+                {sensoresDaOrg.map((s) => (
+                  <option key={s.id_sensor} value={s.id_sensor}>
+                    {s.nome} (ID #{s.id_sensor})
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -402,10 +437,18 @@ const NotificacoesPage = () => {
                         <Calendar size={12} />
                         {new Date(al.created_at).toLocaleString("pt-BR")}
                       </span>
-                      <span style={{ fontSize: "12px", color: "#6b7280", display: "flex", alignItems: "center", gap: "4px" }}>
-                        <Radio size={12} style={{ color: "#10b981" }} />
-                        Sensor #{al.id_sensor}
-                      </span>
+                      {al.organizacao?.nome && (
+                        <span style={{ fontSize: "12px", color: "#6b7280", display: "flex", alignItems: "center", gap: "4px" }}>
+                          <Building size={12} style={{ color: "#10b981" }} />
+                          {al.organizacao.nome}
+                        </span>
+                      )}
+                      {al.id_sensor && (
+                        <span style={{ fontSize: "12px", color: "#6b7280", display: "flex", alignItems: "center", gap: "4px" }}>
+                          <Radio size={12} style={{ color: "#10b981" }} />
+                          {al.sensor?.nome ? `${al.sensor.nome} (#${al.id_sensor})` : `Sensor #${al.id_sensor}`}
+                        </span>
+                      )}
                     </div>
 
                     <p style={{ color: "#374151", fontSize: "14px", lineHeight: "1.5", margin: 0, fontWeight: "500" }}>
@@ -415,32 +458,34 @@ const NotificacoesPage = () => {
                 </div>
 
                 {/* Resolve/Delete trigger */}
-                <button
-                  onClick={() => handleDismiss(al.id_alerta)}
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    color: "#9ca3af",
-                    cursor: "pointer",
-                    padding: "8px",
-                    borderRadius: "8px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    transition: "all 0.2s"
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = "#fef2f2";
-                    e.currentTarget.style.color = "#ef4444";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = "transparent";
-                    e.currentTarget.style.color = "#9ca3af";
-                  }}
-                  title="Marcar como resolvido"
-                >
-                  <Trash2 size={18} />
-                </button>
+                {podeGerenciar && (
+                  <button
+                    onClick={() => handleDismiss(al.id_alerta)}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      color: "#9ca3af",
+                      cursor: "pointer",
+                      padding: "8px",
+                      borderRadius: "8px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      transition: "all 0.2s"
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = "#fef2f2";
+                      e.currentTarget.style.color = "#ef4444";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = "transparent";
+                      e.currentTarget.style.color = "#9ca3af";
+                    }}
+                    title="Marcar como resolvido"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                )}
               </div>
             );
           })}

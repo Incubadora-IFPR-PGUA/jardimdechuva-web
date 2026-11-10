@@ -8,10 +8,41 @@ export const api = axios.create({
   timeout: 10000,
 });
 
+export const STORAGE_KEYS = {
+  token: "jdc_token",
+  refreshToken: "jdc_refresh_token",
+  user: "jdc_user",
+};
+
+// Disparado quando não é mais possível renovar o token; o AuthContext faz o logout
+export const EVENTO_SESSAO_EXPIRADA = "jdc:sessao-expirada";
+
+// ── Renovação do token ────────────────────────────────────────
+// O access token dura 15 min. Requisições que falham juntas aguardam a mesma renovação.
+let renovacaoEmAndamento = null;
+
+const renovarToken = () => {
+  if (!renovacaoEmAndamento) {
+    const refreshToken = localStorage.getItem(STORAGE_KEYS.refreshToken);
+    renovacaoEmAndamento = (
+      refreshToken
+        ? api.post("/auth/refresh", { refresh_token: refreshToken }).then(({ data }) => {
+            const novoToken = data.data.access_token;
+            localStorage.setItem(STORAGE_KEYS.token, novoToken);
+            return novoToken;
+          })
+        : Promise.reject(new Error("Sem refresh token"))
+    ).finally(() => {
+      renovacaoEmAndamento = null;
+    });
+  }
+  return renovacaoEmAndamento;
+};
+
 // ── Interceptors ──────────────────────────────────────────────
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('jdc_token')
+    const token = localStorage.getItem(STORAGE_KEYS.token)
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
@@ -35,7 +66,7 @@ api.interceptors.response.use(
     }
     return response;
   },
-  (error) => {
+  async (error) => {
     if (error.response) {
       console.error(`❌ [API] ${error.response.status} ${error.response.config?.url}`, error.response.data);
     } else if (error.request) {
@@ -43,6 +74,27 @@ api.interceptors.response.use(
     } else {
       console.error("❌ [API] Erro inesperado:", error.message);
     }
+
+    // 401 = token expirado/inválido: renova uma vez e repete a requisição.
+    // 403 (sem permissão) não passa por aqui: a sessão continua válida.
+    const original = error.config;
+    const url = original?.url || "";
+    const rotaDeAutenticacao = url.includes("/auth/login") || url.includes("/auth/refresh");
+
+    if (error.response?.status === 401 && original && !rotaDeAutenticacao) {
+      if (!original._tokenRenovado) {
+        original._tokenRenovado = true;
+        try {
+          const novoToken = await renovarToken();
+          original.headers.Authorization = `Bearer ${novoToken}`;
+          return api(original);
+        } catch {
+          // Não foi possível renovar: segue para encerrar a sessão
+        }
+      }
+      window.dispatchEvent(new Event(EVENTO_SESSAO_EXPIRADA));
+    }
+
     return Promise.reject(error);
   }
 );
@@ -77,6 +129,7 @@ export const atuadorService = {
   criar: (data) => api.post("/atuadores", data),
   atualizar: (id, d) => api.put(`/atuadores/${id}`, d),
   deletar: (id) => api.delete(`/atuadores/${id}`),
+  acionar: (id, acao) => api.post(`/atuadores/${id}/acionar`, { acao }), // acao: "ligar" | "desligar"
 };
 
 // ── Alertas ───────────────────────────────────────────────────
@@ -111,8 +164,14 @@ export const tipoSensorService = {
   atualizar: (id, d) => api.put(`/tipos-sensores/${id}`, d),
   deletar: (id) => api.delete(`/tipos-sensores/${id}`),
 };
-export const tipoDispositivoService = { listar: () => api.get("/tipos-dispositivos") };
 
+export const tipoDispositivoService = {
+  listar: () => api.get("/tipos-dispositivos"),
+  buscar: (id) => api.get(`/tipos-dispositivos/${id}`),
+  criar: (data) => api.post("/tipos-dispositivos", data),
+  atualizar: (id, d) => api.put(`/tipos-dispositivos/${id}`, d),
+  deletar: (id) => api.delete(`/tipos-dispositivos/${id}`),
+};
 // ── Usuários ──────────────────────────────────────────────────
 export const usuarioService = {
   listar: () => api.get("/usuarios"),
